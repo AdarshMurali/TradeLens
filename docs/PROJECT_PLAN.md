@@ -73,7 +73,14 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [ ] `infra/README.md`: set **AWS Budgets $5 alarm FIRST**
 - [ ] Create S3 buckets (`tradelens-raw-*`, `tradelens-curated-*`), Glue DB,
       EMR Serverless application, IAM role (`scripts/setup_aws.sh`)
-- [ ] Upload a small data sample + code to S3
+- [ ] Generate a larger demo-scale dataset locally (more symbols / longer
+      range / higher order density than the local-dev config — see below),
+      then upload it + code to S3. Not a literal "sample": EMR Serverless
+      bills per job-second, not idle time, so a bigger one-off run is cheap.
+- [ ] Before generating at demo scale: vectorize `generate_order_events.py`'s
+      per-order Python loop (numpy/pandas vectorized ops) — the current
+      dataclass-per-order approach is fine at ~5M rows (~2 min) but won't
+      scale to tens of millions in reasonable local time.
 - **Done when:** buckets/role/app exist and billing alarm is active.
 
 ## Phase 7 — Run on EMR Serverless
