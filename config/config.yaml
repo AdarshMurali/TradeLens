@@ -1,0 +1,61 @@
+# TradeLens configuration. Transformation code must read from here — no hardcoding.
+
+project: tradelens
+
+# Which universe of symbols to pull (keep small while developing).
+symbols:
+  - AAPL
+  - MSFT
+  - TSLA
+  - AMZN
+  - NVDA
+
+# Date range for historical pull (yfinance).
+date_range:
+  start: "2023-01-01"
+  end: "2024-01-01"
+  interval: "1d"        # use "1m"/"5m" for finer granularity (limited history)
+
+# Storage roots. {env}=local uses local paths; {env}=aws uses s3a:// (from .env).
+paths:
+  local:
+    raw: "data/raw"
+    bronze: "data/lake/bronze"
+    silver: "data/lake/silver"
+    gold: "data/lake/gold"
+  aws:
+    raw: "s3a://${TRADELENS_RAW_BUCKET}/raw"
+    bronze: "s3a://${TRADELENS_CURATED_BUCKET}/bronze"
+    silver: "s3a://${TRADELENS_CURATED_BUCKET}/silver"
+    gold: "s3a://${TRADELENS_CURATED_BUCKET}/gold"
+
+# Synthetic order-event generator settings.
+synthetic:
+  orders_per_symbol_per_day: 2000
+  seed: 42
+  inject:
+    spoofing_rate: 0.02       # fraction of orders that are spoof patterns
+    wash_trade_rate: 0.01
+    layering_rate: 0.01
+  accounts: 50                # number of distinct trading accounts
+
+# Analytics windows.
+analytics:
+  vwap_window: 20             # rows
+  volatility_window: 20       # rows
+  daily_rollup: true
+
+# Surveillance thresholds.
+surveillance:
+  spoof_cancel_ms: 500        # place->cancel within this = suspicious
+  rapid_order_window_sec: 60
+  rapid_order_count: 20       # > this many orders in the window = flag
+  risk_score_alert_threshold: 0.7
+
+# Skew handling.
+skew:
+  salt_buckets: 8             # salt high-volume symbols into N sub-keys
+
+# Data quality.
+quality:
+  fail_on_error: true
