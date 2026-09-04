@@ -34,6 +34,22 @@ Fill/adjust as schemas firm up. Keep this in sync with the code.
 | label | string | normal / abuse |
 | pattern | string | spoofing / wash_trade / layering / null |
 
+## silver: market_data
+| column | type | notes |
+|---|---|---|
+| symbol, dt | | keys; deduped, latest `_ingested_at` wins |
+| open/high/low/close | double | |
+| volume | long | |
+| daily_return | double | (close - prev_close) / prev_close, per symbol |
+| is_outlier | boolean | \|daily_return\| beyond `quality.outlier_stddev_threshold` symbol stddevs |
+
+## silver: orders
+| column | type | notes |
+|---|---|---|
+| (all bronze order-event columns) | | deduped on `event_id` |
+| sequence_no | int | per-order_id ordering by `event_time` |
+| final_status | string | FILL / CANCEL / OPEN — terminal state of the order lifecycle |
+
 ## silver: securities_master (SCD Type 2)
 | column | type | notes |
 |---|---|---|

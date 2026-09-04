@@ -38,13 +38,13 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - **Done when:** bronze Delta tables exist for market and orders.
 
 ## Phase 3 — Silver (clean / conform / dedup / SCD2)
-- [ ] `silver/clean_market_data.py`: null handling, type casts, outlier flags,
+- [x] `silver/clean_market_data.py`: null handling, type casts, outlier flags,
       dedup (`dropDuplicates` on natural key + latest `_ingested_at`).
-- [ ] `silver/build_order_events.py`: normalize event stream, order-lifecycle
+- [x] `silver/build_order_events.py`: normalize event stream, order-lifecycle
       reconstruction, out-of-order handling (watermark-style logic).
-- [ ] `silver/securities_master.py`: **SCD Type 2** dimension (symbol, name,
+- [x] `silver/securities_master.py`: **SCD Type 2** dimension (symbol, name,
       sector, valid_from/valid_to, is_current) — demonstrate history tracking.
-- [ ] Unit tests for dedup, SCD2 open/close-record logic.
+- [x] Unit tests for dedup, SCD2 open/close-record logic.
 - **Done when:** clean, conformed silver Delta tables + SCD2 dimension exist.
 
 ## Phase 4 — Gold: market analytics
