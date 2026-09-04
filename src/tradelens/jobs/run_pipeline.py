@@ -22,6 +22,7 @@ from tradelens.bronze import ingest_to_bronze as bronze
 from tradelens.silver import clean_market_data as s_market
 from tradelens.silver import build_order_events as s_orders
 from tradelens.silver import securities_master as s_secmaster
+from tradelens.gold import fills as g_fills
 from tradelens.gold import market_analytics as g_market
 from tradelens.gold import surveillance_alerts as g_surv
 from tradelens.quality import data_quality as dq
@@ -79,6 +80,11 @@ def main() -> None:
     # --- SILVER ---
     sm = s_market.clean_market(b_market, cfg["quality"]["outlier_stddev_threshold"])
     so = s_orders.normalize_orders(b_orders)
+    # `so` feeds the referential-integrity check, the silver write, the gold
+    # fills build, and all three surveillance detectors below — cache it so
+    # those six-plus actions don't each recompute normalize_orders' window
+    # functions over the full ~5M-row order-event set from scratch.
+    so.cache()
 
     # Referential integrity: every non-NEW event must belong to an order that
     # actually had a NEW event (no orphan FILL/CANCEL/MODIFY).
@@ -112,14 +118,51 @@ def main() -> None:
     )
     _write_delta(analytics, f"{gold_p}/market_analytics", ["dt", "symbol"])
 
+    # --- GOLD: fills (target for the trade-corrections MERGE INTO demo) ---
+    fills = g_fills.build_fills(so)
+    _write_delta(fills, f"{gold_p}/fills", ["dt", "symbol"])
+
     # --- GOLD: surveillance ---
-    spoof = g_surv.detect_spoofing(so, cfg["surveillance"]["spoof_cancel_ms"])
-    wash = g_surv.detect_wash_trades(so)
-    alerts = spoof.select("account_id", "symbol", "pattern").unionByName(
-        wash.select("account_id", "symbol", "pattern")
+    surv_cfg = cfg["surveillance"]
+    spoof = g_surv.detect_spoofing(so, surv_cfg["spoof_cancel_ms"], surv_cfg["spoof_min_quantity"])
+    wash = g_surv.detect_wash_trades(so, surv_cfg["wash_trade_window_sec"])
+    rapid = g_surv.rapid_order_counts_salted(
+        so, cfg["skew"]["salt_buckets"], surv_cfg["rapid_order_window_sec"], surv_cfg["rapid_order_count"]
     )
-    alerts = g_surv.compute_risk_score(alerts)
+
+    # Skew-handling writeup: before (unsalted, groups a hot symbol's NEW/
+    # CANCEL events onto very few shuffle partitions) vs after (salted,
+    # spread across cfg.skew.salt_buckets extra partitions before the
+    # re-aggregate). .explain() only prints the physical plan — it doesn't
+    # execute the query, so this costs nothing at runtime.
+    unsalted_rapid = g_surv.rapid_order_counts_unsalted(
+        so, surv_cfg["rapid_order_window_sec"], surv_cfg["rapid_order_count"]
+    )
+    logger.info("Skew comparison - BEFORE salting (rapid_order_counts_unsalted):")
+    unsalted_rapid.explain()
+    logger.info("Skew comparison - AFTER salting (rapid_order_counts_salted):")
+    rapid.explain()
+
+    alert_cols = ["order_id", "account_id", "symbol", "pattern", "latency_ms", "order_count"]
+    alerts = (
+        spoof.withColumn("order_count", F.lit(None).cast("long")).select(*alert_cols)
+        .unionByName(
+            wash.withColumn("latency_ms", F.lit(None).cast("double"))
+            .withColumn("order_count", F.lit(None).cast("long")).select(*alert_cols)
+        )
+        .unionByName(rapid.withColumn("latency_ms", F.lit(None).cast("double")).select(*alert_cols))
+    )
+    alerts = g_surv.compute_risk_score(alerts, surv_cfg["spoof_cancel_ms"], surv_cfg["rapid_order_count"])
+    alerts = alerts.filter(F.col("risk_score") >= surv_cfg["risk_score_alert_threshold"])
     _write_delta(alerts, f"{gold_p}/surveillance_alerts", ["pattern"])
+
+    # Detection quality against the Phase-1 synthetic ground truth. Reporting
+    # only (logged, not a DQ gate) — precision/recall are tunable, not a hard
+    # data-integrity constraint.
+    labels = spark.read.parquet(f"{raw}/orders_labels")
+    dq.precision_recall(alerts, labels, "spoofing")
+    dq.precision_recall(alerts, labels, "wash_trade")
+    dq.precision_recall(alerts, labels, "rapid_ordering", truth_pattern="layering")
 
     logger.info("Pipeline complete. Gold tables written under %s", gold_p)
     spark.stop()
