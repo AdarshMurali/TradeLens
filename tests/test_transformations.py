@@ -32,7 +32,7 @@ def test_detect_spoofing_flags_fast_cancel(spark):
             "price", "quantity", "event_time"]
     df = spark.createDataFrame(rows, cols).withColumn(
         "event_time", F.col("event_time").cast("timestamp"))
-    flagged = detect_spoofing(df, cancel_ms=500).collect()
+    flagged = detect_spoofing(df, cancel_ms=500, min_quantity=2000).collect()
     assert any(r["order_id"] == "O1" for r in flagged)
 
 
