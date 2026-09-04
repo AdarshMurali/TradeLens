@@ -28,8 +28,8 @@ def _read(spark, fmt: str, path: str) -> DataFrame:
     return spark.read.format(fmt).load(path)
 
 
-def _write_delta(df: DataFrame, path: str, partition_by: list[str]) -> None:
-    (df.write.format("delta").mode("overwrite")
+def _write_delta(df: DataFrame, path: str, partition_by: list[str], mode: str = "overwrite") -> None:
+    (df.write.format("delta").mode(mode)
        .partitionBy(*partition_by).save(path))
 
 
@@ -47,8 +47,9 @@ def main() -> None:
     b_orders = bronze.to_bronze_orders(raw_orders)
     dq.expect_non_empty(b_market, "bronze_market", cfg["quality"]["fail_on_error"])
     dq.expect_non_empty(b_orders, "bronze_orders", cfg["quality"]["fail_on_error"])
-    _write_delta(b_market, f"{bronze_p}/market", ["dt"])
-    _write_delta(b_orders, f"{bronze_p}/orders", ["dt"])
+    # Bronze is an immutable, append-only landing zone — never overwrite history.
+    _write_delta(b_market, f"{bronze_p}/market", ["dt", "symbol"], mode="append")
+    _write_delta(b_orders, f"{bronze_p}/orders", ["dt", "symbol"], mode="append")
 
     # --- SILVER ---
     sm = s_market.clean_market(b_market)
