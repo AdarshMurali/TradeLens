@@ -43,6 +43,20 @@ def get_spark(app_name: str = "tradelens") -> SparkSession:
         except Exception as exc:  # pragma: no cover
             logger.warning("Delta pip config unavailable (%s); ensure jars present.", exc)
         builder = builder.master(os.getenv("SPARK_MASTER", "local[*]"))
+        # local[*] runs the whole pipeline (driver + all "executors") in one
+        # JVM, on whatever this laptop actually has (commonly 4-8 cores,
+        # 8-16GB RAM) — not a cluster. The base shuffle.partitions=64 above
+        # is sized for a real cluster; locally it means far more concurrent
+        # tasks (and, for the Pandas UDF stage, Python worker subprocesses)
+        # than there are cores, which starves them of memory and times out
+        # ("TimeoutError: timed out" reading from the Python worker) under
+        # this pipeline's self-joins/salted aggregations over ~5M order
+        # events. Cut both down for local; AWS/EMR Serverless sizes its own
+        # driver/parallelism via the sparkSubmit job config, not these.
+        builder = (
+            builder.config("spark.driver.memory", os.getenv("SPARK_DRIVER_MEMORY", "2g"))
+            .config("spark.sql.shuffle.partitions", os.getenv("SPARK_SHUFFLE_PARTITIONS", "8"))
+        )
 
     spark = builder.getOrCreate()
     spark.sparkContext.setLogLevel("WARN")
