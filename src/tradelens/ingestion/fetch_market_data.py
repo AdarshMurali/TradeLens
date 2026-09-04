@@ -41,6 +41,11 @@ def fetch() -> None:
         df["symbol"] = symbol
         date_col = "date" if "date" in df.columns else "datetime"
         df["dt"] = pd.to_datetime(df[date_col]).dt.date.astype(str)
+        # Drop the raw datetime64[ns] column: pyarrow writes it as a
+        # nanosecond-precision Parquet timestamp, which Spark cannot read
+        # ("Illegal Parquet type: INT64 (TIMESTAMP(NANOS,false))"). The
+        # string `dt` column above is the documented date column downstream.
+        df = df.drop(columns=[date_col])
 
         # Write one file per (symbol) partitioned by dt via a single directory tree.
         for dt, part in df.groupby("dt"):
