@@ -42,6 +42,12 @@ EVENT_SCHEMA = [
 ]
 # event_type in {NEW, MODIFY, CANCEL, FILL}; side in {BUY, SELL}
 
+# A config `*_rate` is "fraction of orders that are this abuse pattern"; this
+# converts that into a per-symbol-day probability of injecting one episode
+# (an episode contributes several orders, not one, so the rate alone would
+# under-inject relative to `orders_per_symbol_per_day`).
+EPISODES_PER_RATE_UNIT = 50
+
 
 @dataclass
 class OrderEvent:
@@ -142,6 +148,40 @@ def _inject_wash_trade(symbol, day, prices_row, accounts, rng, counter):
     return events, labels
 
 
+def _inject_layering(symbol, day, prices_row, accounts, rng, counter):
+    """Several orders stacked at successive price levels away from the touch
+    on one side, then all pulled together shortly after — creates a false
+    impression of book depth without any of them being meant to fill."""
+    events, labels = [], []
+    base = float(prices_row["close"])
+    t0 = datetime.fromisoformat(str(day)) + timedelta(hours=13, seconds=rng.randint(0, 3600))
+    acct = rng.choice(accounts)
+    side = rng.choice(["BUY", "SELL"])
+    direction = 1 if side == "SELL" else -1  # stack away from mid price
+    n_layers = rng.randint(4, 6)
+
+    layers = []  # (order_id, price, quantity)
+    for i in range(1, n_layers + 1):
+        counter["v"] += 1
+        oid = f"O{counter['v']:09d}"
+        px = round(base * (1 + direction * 0.001 * i), 2)
+        qty = rng.choice([1000, 1500, 2000])
+        t = t0 + timedelta(milliseconds=rng.randint(0, 300) * i)
+        events.append(OrderEvent(f"E{counter['v']}N", oid, acct, symbol, "NEW", side, px, qty,
+                                 t.isoformat(), str(day)))
+        labels.append({"order_id": oid, "label": "abuse", "pattern": "layering"})
+        layers.append((oid, px, qty))
+
+    # pull the whole stack shortly after, before any could realistically fill
+    cancel_base = t0 + timedelta(seconds=rng.randint(1, 5))
+    for i, (oid, px, qty) in enumerate(layers, start=1):
+        counter["v"] += 1
+        tc = cancel_base + timedelta(milliseconds=rng.randint(0, 200) * i)
+        events.append(OrderEvent(f"E{counter['v']}C", oid, acct, symbol, "CANCEL", side, px, qty,
+                                 tc.isoformat(), str(day)))
+    return events, labels
+
+
 def generate() -> None:
     cfg = load_config()
     raw_root = cfg.path("raw")
@@ -159,11 +199,12 @@ def generate() -> None:
             day = row["dt"]
             ev, lb = _gen_normal_orders(symbol, day, row, accounts,
                                         syn["orders_per_symbol_per_day"], rng, counter)
-            if rng.random() < syn["inject"]["spoofing_rate"] * 50:
+            if rng.random() < syn["inject"]["spoofing_rate"] * EPISODES_PER_RATE_UNIT:
                 e, l = _inject_spoofing(symbol, day, row, accounts, rng, counter); ev += e; lb += l
-            if rng.random() < syn["inject"]["wash_trade_rate"] * 50:
+            if rng.random() < syn["inject"]["wash_trade_rate"] * EPISODES_PER_RATE_UNIT:
                 e, l = _inject_wash_trade(symbol, day, row, accounts, rng, counter); ev += e; lb += l
-            # TODO: add _inject_layering similarly.
+            if rng.random() < syn["inject"]["layering_rate"] * EPISODES_PER_RATE_UNIT:
+                e, l = _inject_layering(symbol, day, row, accounts, rng, counter); ev += e; lb += l
 
             ev_df = pd.DataFrame([asdict(x) for x in ev])[EVENT_SCHEMA]
             out = Path(raw_root) / "orders" / f"dt={day}"; out.mkdir(parents=True, exist_ok=True)
