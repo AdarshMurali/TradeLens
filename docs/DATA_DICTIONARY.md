@@ -68,9 +68,17 @@ Fill/adjust as schemas firm up. Keep this in sync with the code.
 | spread_proxy | double | (high - low) / close — proxy for bid/ask spread; true bid/ask isn't in OHLCV bars |
 | name, sector | string | broadcast-joined from `securities_master` (current version) |
 
+## gold: fills
+| column | type | notes |
+|---|---|---|
+| event_id, order_id, account_id, symbol, side, price, quantity, event_time, dt | | from silver orders, FILL events only |
+| is_busted | boolean | flipped by the trade-corrections MERGE INTO demo (`jobs/apply_trade_corrections.py`) |
+
 ## gold: surveillance_alerts
 | column | type | notes |
 |---|---|---|
-| account_id, symbol | | |
-| pattern | string | partition key |
-| risk_score | double | 0..1 (Pandas UDF) |
+| order_id, account_id, symbol | | |
+| pattern | string | spoofing / wash_trade / rapid_ordering (layering's detector) — partition key |
+| latency_ms | double | spoofing only; nullable |
+| order_count | long | rapid_ordering only; nullable |
+| risk_score | double | 0..1 (Pandas UDF); table is pre-filtered to `>= surveillance.risk_score_alert_threshold` |
