@@ -59,3 +59,15 @@ skew:
 # Data quality.
 quality:
   fail_on_error: true
+  outlier_stddev_threshold: 3   # flag a day's return as an outlier beyond N stddevs
+
+# Static securities reference (name/sector/status) — seed for the SCD2
+# securities_master dimension. In production this would come from a proper
+# reference-data feed; kept small and static here since ticker metadata isn't
+# the point of the demo. Keep in sync with `symbols` above.
+securities_reference:
+  AAPL: {name: "Apple Inc.", sector: "Technology", status: "active"}
+  MSFT: {name: "Microsoft Corporation", sector: "Technology", status: "active"}
+  TSLA: {name: "Tesla, Inc.", sector: "Consumer Cyclical", status: "active"}
+  AMZN: {name: "Amazon.com, Inc.", sector: "Consumer Cyclical", status: "active"}
+  NVDA: {name: "NVIDIA Corporation", sector: "Technology", status: "active"}
