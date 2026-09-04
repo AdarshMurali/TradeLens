@@ -47,9 +47,22 @@ analytics:
 
 # Surveillance thresholds.
 surveillance:
-  spoof_cancel_ms: 500        # place->cancel within this = suspicious
-  rapid_order_window_sec: 60
-  rapid_order_count: 20       # > this many orders in the window = flag
+  spoof_cancel_ms: 500          # place->cancel within this = suspicious
+  spoof_min_quantity: 2000      # AND quantity at least this large (normal orders are 100-1000)
+  wash_trade_window_sec: 10     # same account/symbol/price BUY+SELL within this bucket = wash trade
+  # A layering episode (see ingestion/generate_order_events.py) places 4-6
+  # orders then cancels them all within roughly 1-8 seconds -> 8-12 NEW/CANCEL
+  # events for one account+symbol. rapid_order_counts_salted buckets events
+  # into fixed windows (tumbling, not sliding/session), so a window much
+  # narrower than an episode's span risks splitting one burst across a bucket
+  # boundary and undercounting both halves below the threshold — empirically,
+  # a 10s window misses ~40% of layering episodes this way, vs ~8% at 45s.
+  # Background order traffic for any single (account, symbol) pair is sparse
+  # (~2000 orders/day spread over 50 accounts and a ~6.5h session), so a
+  # window this wide still cleanly separates bursts from normal activity —
+  # no real bid/ask depth data to tune against, but the margin is large.
+  rapid_order_window_sec: 45
+  rapid_order_count: 6          # > this many NEW/CANCEL events in the window = flag
   risk_score_alert_threshold: 0.7
 
 # Skew handling.
