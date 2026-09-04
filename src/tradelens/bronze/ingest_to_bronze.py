@@ -22,10 +22,27 @@ def add_ingest_metadata(df: DataFrame) -> DataFrame:
 
 
 def to_bronze_market(raw_df: DataFrame) -> DataFrame:
-    # TODO: cast columns to a strict schema (open/high/low/close: double, volume: long).
-    return add_ingest_metadata(raw_df)
+    """Enforce the OHLCV schema (see docs/DATA_DICTIONARY.md) before landing."""
+    typed = (
+        raw_df.withColumn("open", F.col("open").cast("double"))
+        .withColumn("high", F.col("high").cast("double"))
+        .withColumn("low", F.col("low").cast("double"))
+        .withColumn("close", F.col("close").cast("double"))
+        .withColumn("volume", F.col("volume").cast("long"))
+        .withColumn("symbol", F.col("symbol").cast("string"))
+        .withColumn("dt", F.col("dt").cast("date"))
+    )
+    return add_ingest_metadata(typed)
 
 
 def to_bronze_orders(raw_df: DataFrame) -> DataFrame:
-    # TODO: cast price->double, quantity->long, event_time->timestamp.
-    return add_ingest_metadata(raw_df)
+    """Enforce the order-event schema (see docs/DATA_DICTIONARY.md) before landing."""
+    typed = (
+        raw_df.withColumn("price", F.col("price").cast("double"))
+        .withColumn("quantity", F.col("quantity").cast("long"))
+        .withColumn("event_time", F.col("event_time").cast("timestamp"))
+        .withColumn("parent_order_id", F.col("parent_order_id").cast("string"))
+        .withColumn("symbol", F.col("symbol").cast("string"))
+        .withColumn("dt", F.col("dt").cast("date"))
+    )
+    return add_ingest_metadata(typed)
