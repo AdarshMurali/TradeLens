@@ -48,12 +48,16 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - **Done when:** clean, conformed silver Delta tables + SCD2 dimension exist.
 
 ## Phase 4 — Gold: market analytics
-- [ ] `gold/market_analytics.py`:
+- [x] `gold/market_analytics.py`:
       - rolling **VWAP** (window function)
       - rolling **volatility** (stddev of log returns over rolling window)
-      - spread proxy, daily OHLCV rollups
+      - spread proxy, daily OHLCV rollups (rollup is a no-op here — see the
+        module docstring for why: ingestion is daily-bar granularity, so the
+        gold grain already is the daily rollup; the aggregation logic to add
+        if intraday ingestion ever lands is documented there)
       - **broadcast join** to securities master for enrichment
-- [ ] Write Delta partitioned by `dt`; unit tests on VWAP/volatility math.
+- [x] Write Delta partitioned by `dt` (+ `symbol`, per CLAUDE.md SS9); unit
+      tests on VWAP/volatility math.
 - **Done when:** `market_analytics` gold Delta table validated against hand-calc
       on a tiny sample.
 

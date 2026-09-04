@@ -62,9 +62,11 @@ Fill/adjust as schemas firm up. Keep this in sync with the code.
 | column | type | notes |
 |---|---|---|
 | symbol, dt | | keys |
-| close, volume | | |
-| vwap | double | rolling window |
-| volatility | double | rolling stddev of log returns |
+| open/high/low/close, volume | | |
+| vwap | double | rolling window, `analytics.vwap_window` rows |
+| log_return, volatility | double | volatility = rolling stddev of log_return, `analytics.volatility_window` rows |
+| spread_proxy | double | (high - low) / close — proxy for bid/ask spread; true bid/ask isn't in OHLCV bars |
+| name, sector | string | broadcast-joined from `securities_master` (current version) |
 
 ## gold: surveillance_alerts
 | column | type | notes |
