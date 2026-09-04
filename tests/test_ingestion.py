@@ -112,3 +112,22 @@ def test_inject_layering_stacks_orders_then_cancels_all():
     # prices are distinct successive levels away from the reference price
     new_prices = sorted(e.price for e in events if e.event_type == "NEW")
     assert len(new_prices) == len(set(new_prices))
+
+
+def test_inject_layering_cancel_always_after_own_new_across_seeds():
+    # Regression: cancel_base used to be anchored only after t0, not after the
+    # last layer's NEW jitter, so a CANCEL could land before its own NEW event
+    # in event-time order (silver's final_status derivation surfaced this as
+    # orders stuck "OPEN"). Sweep seeds to cover the n_layers=4..6 range.
+    from datetime import datetime
+
+    for seed in range(50):
+        rng = random.Random(seed)
+        events, _ = _inject_layering(SYMBOL, DAY, PRICE_ROW, ACCOUNTS, rng, {"v": 0})
+        by_order = {}
+        for e in events:
+            by_order.setdefault(e.order_id, {})[e.event_type] = e.event_time
+        for order_id, by_type in by_order.items():
+            new_t = datetime.fromisoformat(by_type["NEW"])
+            cancel_t = datetime.fromisoformat(by_type["CANCEL"])
+            assert cancel_t > new_t, f"seed={seed} order={order_id}: CANCEL not after NEW"

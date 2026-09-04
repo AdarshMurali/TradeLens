@@ -172,8 +172,13 @@ def _inject_layering(symbol, day, prices_row, accounts, rng, counter):
         labels.append({"order_id": oid, "label": "abuse", "pattern": "layering"})
         layers.append((oid, px, qty))
 
-    # pull the whole stack shortly after, before any could realistically fill
-    cancel_base = t0 + timedelta(seconds=rng.randint(1, 5))
+    # Pull the whole stack shortly after, before any could realistically fill.
+    # Anchored after the *last possible* NEW timestamp (milliseconds(300 * n_layers)
+    # above), not just after t0 — otherwise a higher-numbered layer's NEW jitter
+    # can land after an early cancel_base draw, putting its CANCEL before its own
+    # NEW in event-time order.
+    last_new_offset = timedelta(milliseconds=300 * n_layers)
+    cancel_base = t0 + last_new_offset + timedelta(seconds=rng.randint(1, 5))
     for i, (oid, px, qty) in enumerate(layers, start=1):
         counter["v"] += 1
         tc = cancel_base + timedelta(milliseconds=rng.randint(0, 200) * i)
