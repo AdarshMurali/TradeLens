@@ -23,18 +23,24 @@ setup:
 	$(PYTHON) -m venv $(VENV)
 	. $(VENV)/bin/activate && pip install --upgrade pip && pip install -r requirements-dev.txt && pip install -e .
 
+# Unset SPARK_HOME/PYTHONPATH before every run: a stray global SPARK_HOME or
+# PYTHONPATH pointing at an unrelated Spark install (e.g. from another local
+# project) silently shadows the venv's pip-installed PySpark and breaks the
+# Delta Lake version match. See docs/PROJECT_PLAN.md Phase 0.
+ENV_GUARD := env -u SPARK_HOME PYTHONPATH=$(PYTHONPATH)
+
 ingest:
-	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m tradelens.ingestion.fetch_market_data
-	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m tradelens.ingestion.generate_order_events
+	$(ENV_GUARD) $(PYTHON) -m tradelens.ingestion.fetch_market_data
+	$(ENV_GUARD) $(PYTHON) -m tradelens.ingestion.generate_order_events
 
 run-local:
-	PYTHONPATH=$(PYTHONPATH) TRADELENS_ENV=local $(PYTHON) -m tradelens.jobs.run_pipeline
+	$(ENV_GUARD) TRADELENS_ENV=local $(PYTHON) -m tradelens.jobs.run_pipeline
 
 run-streaming:
-	PYTHONPATH=$(PYTHONPATH) TRADELENS_ENV=local $(PYTHON) -m tradelens.jobs.run_streaming
+	$(ENV_GUARD) TRADELENS_ENV=local $(PYTHON) -m tradelens.jobs.run_streaming
 
 test:
-	PYTHONPATH=$(PYTHONPATH) pytest -q
+	$(ENV_GUARD) pytest -q
 
 lint:
 	ruff check src tests
