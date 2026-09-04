@@ -40,3 +40,36 @@ def expect_referential_integrity(child: DataFrame, parent: DataFrame,
     logger.info("DQ[%s] orphans=%s", name, orphans)
     if orphans > 0 and fail:
         raise DataQualityError(f"{name} referential integrity failed: {orphans} orphans")
+
+
+def precision_recall(
+    alerts: DataFrame, labels: DataFrame, alert_pattern: str, truth_pattern: str | None = None
+) -> dict:
+    """Precision/recall of `alerts` for one abuse pattern, against the
+    Phase-1 synthetic ground-truth label file. Pure transformation.
+
+    `alerts` must carry `order_id` and `pattern` columns (post risk-score
+    filtering), matched on `alert_pattern`. `labels` is the ground-truth file
+    (order_id, label 'normal'/'abuse', pattern), matched on `truth_pattern`
+    (defaults to `alert_pattern` — pass it explicitly when the alert's
+    pattern name differs from the ground truth's, e.g. "rapid_ordering"
+    alerts are TradeLens's detector for the "layering" ground-truth pattern).
+    Reporting-only — not a pass/fail DQ gate, since detection precision/
+    recall is inherently tunable, not a hard integrity constraint.
+    """
+    truth_pattern = truth_pattern or alert_pattern
+    flagged = alerts.filter(F.col("pattern") == alert_pattern).select("order_id").distinct()
+    truth = labels.filter(F.col("pattern") == truth_pattern).select("order_id").distinct()
+
+    tp = flagged.join(truth, "order_id", "inner").count()
+    fp = flagged.join(truth, "order_id", "left_anti").count()
+    fn = truth.join(flagged, "order_id", "left_anti").count()
+
+    precision = tp / (tp + fp) if (tp + fp) else None
+    recall = tp / (tp + fn) if (tp + fn) else None
+    result = {
+        "alert_pattern": alert_pattern, "truth_pattern": truth_pattern,
+        "tp": tp, "fp": fp, "fn": fn, "precision": precision, "recall": recall,
+    }
+    logger.info("Precision/recall[%s] %s", alert_pattern, result)
+    return result
