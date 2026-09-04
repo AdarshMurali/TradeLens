@@ -32,6 +32,10 @@ def fetch() -> None:
         if df.empty:
             logger.warning("No data for %s", symbol)
             continue
+        if isinstance(df.columns, pd.MultiIndex):
+            # yfinance returns (field, ticker) MultiIndex columns even for a
+            # single symbol; drop the ticker level before flattening names.
+            df.columns = df.columns.get_level_values(0)
         df = df.reset_index()
         df.columns = [str(c).lower().replace(" ", "_") for c in df.columns]
         df["symbol"] = symbol
