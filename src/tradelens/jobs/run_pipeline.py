@@ -110,7 +110,7 @@ def main() -> None:
     analytics = g_market.build_market_analytics(
         sm, securities, cfg["analytics"]["vwap_window"], cfg["analytics"]["volatility_window"]
     )
-    _write_delta(analytics, f"{gold_p}/market_analytics", ["dt"])
+    _write_delta(analytics, f"{gold_p}/market_analytics", ["dt", "symbol"])
 
     # --- GOLD: surveillance ---
     spoof = g_surv.detect_spoofing(so, cfg["surveillance"]["spoof_cancel_ms"])
