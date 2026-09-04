@@ -8,33 +8,33 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 ---
 
 ## Phase 0 — Project setup
-- [ ] Create venv, install `requirements.txt` + `requirements-dev.txt` (`make setup`)
-- [ ] `pip install -e .` (or set `PYTHONPATH=src`) so `import tradelens` works
-- [ ] Verify local Spark + Delta Lake works: run `common/spark_session.py` smoke test
-- [ ] Fill in `config/config.yaml` and copy `.env.example` → `.env`
+- [x] Create venv, install `requirements.txt` + `requirements-dev.txt` (`make setup`)
+- [x] `pip install -e .` (or set `PYTHONPATH=src`) so `import tradelens` works
+- [x] Verify local Spark + Delta Lake works: run `common/spark_session.py` smoke test
+- [x] Fill in `config/config.yaml` and copy `.env.example` → `.env`
 - **Done when:** `make test` runs (even with only placeholder tests) and a local
   SparkSession with Delta support starts.
 
 ## Phase 1 — Ingestion (local, free)
-- [ ] `ingestion/fetch_market_data.py`: pull OHLCV for the configured symbols via
+- [x] `ingestion/fetch_market_data.py`: pull OHLCV for the configured symbols via
       yfinance, write raw CSV/Parquet to `data/raw/market/dt=YYYY-MM-DD/`
-- [ ] `ingestion/generate_order_events.py`: synthesize order events
+- [x] `ingestion/generate_order_events.py`: synthesize order events
       (placed/modified/cancelled/filled) from the OHLCV, injecting:
       - spoofing: large order placed then cancelled within ms, opposite side
         of a real fill
       - wash trading: same beneficial owner on both sides, no economic change
       - layering: multiple orders stacked then pulled
       Write to `data/raw/orders/dt=.../`
-- [ ] Make injected-pattern rate/volume configurable; record ground-truth labels
+- [x] Make injected-pattern rate/volume configurable; record ground-truth labels
       in a side file for validating detection precision/recall later
 - **Done when:** `make ingest` produces raw market + order data locally, and the
   ground-truth label file exists.
 
 ## Phase 2 — Bronze
-- [ ] `bronze/ingest_to_bronze.py`: read raw files, add ingestion metadata
+- [x] `bronze/ingest_to_bronze.py`: read raw files, add ingestion metadata
       (`_ingested_at`, `_source_file`), enforce a schema, write Delta partitioned
       by `dt` (and `symbol` where sensible). Immutable append.
-- [ ] Unit test: schema + partition columns present, row count preserved.
+- [x] Unit test: schema + partition columns present, row count preserved.
 - **Done when:** bronze Delta tables exist for market and orders.
 
 ## Phase 3 — Silver (clean / conform / dedup / SCD2)
