@@ -49,6 +49,11 @@ class Config:
 def load_config(config_path: str | Path = "config/config.yaml") -> Config:
     load_dotenv()  # loads .env if present
     env = os.getenv("TRADELENS_ENV", "local")
+    # On EMR Serverless, spark-submit's --files stages config.yaml into the
+    # job's flat working directory (no "config/" subdirectory survives), so
+    # scripts/submit_emr_serverless.sh points this at the bare filename via
+    # spark.emr-serverless.driverEnv.TRADELENS_CONFIG_PATH.
+    config_path = os.getenv("TRADELENS_CONFIG_PATH", config_path)
     with open(config_path, "r", encoding="utf-8") as fh:
         raw = yaml.safe_load(fh)
     raw = _expand_env(raw)

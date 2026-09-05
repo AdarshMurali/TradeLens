@@ -5,6 +5,8 @@ __pycache__/
 .eggs/
 build/
 dist/
+tradelens_src.zip
+python_deps.zip
 .venv/
 venv/
 env/
