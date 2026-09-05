@@ -1,0 +1,39 @@
+name: Run Pipeline on EMR Serverless
+
+# Manual-only: this is the one workflow that spends real AWS money (EMR
+# Serverless compute), so it never runs on a push — only a human clicking
+# "Run workflow" in the Actions tab. Submits the same run_pipeline.py the
+# deploy workflow already baked into the application's current image
+# (see deploy.yml's update-application step) — this workflow does not
+# build or push anything itself.
+on:
+  workflow_dispatch: {}
+
+env:
+  AWS_REGION: ap-south-1
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Submit job (entryPoint baked into the current custom image)
+        run: |
+          aws emr-serverless start-job-run \
+            --application-id "${{ secrets.TRADELENS_EMR_APP_ID }}" \
+            --execution-role-arn "${{ secrets.TRADELENS_EMR_JOB_ROLE_ARN }}" \
+            --region "${{ env.AWS_REGION }}" \
+            --name "tradelens-batch-gha-$(date +%Y%m%d-%H%M%S)" \
+            --job-driver '{
+              "sparkSubmit": {
+                "entryPoint": "/home/hadoop/tradelens/jobs/run_pipeline.py",
+                "sparkSubmitParameters": "--conf spark.driver.cores=4 --conf spark.driver.memory=16g --conf spark.executor.cores=4 --conf spark.executor.memory=16g --conf spark.executor.instances=2 --conf spark.dynamicAllocation.initialExecutors=2 --conf spark.dynamicAllocation.maxExecutors=2 --conf spark.sql.shuffle.partitions=16"
+              }
+            }' \
+            --configuration-overrides "{\"monitoringConfiguration\":{\"s3MonitoringConfiguration\":{\"logUri\":\"s3://${{ secrets.TRADELENS_CURATED_BUCKET }}/emr-logs/\"}}}"

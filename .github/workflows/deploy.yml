@@ -1,0 +1,71 @@
+name: Build and Deploy
+
+# Runs the test suite, then builds the TradeLens runtime image ONCE (in CI,
+# not on anyone's local machine — EMR Serverless base images are large and
+# a local build proved genuinely disruptive on an 8GB dev laptop) and
+# publishes it to two places: Docker Hub (the primary, public artifact —
+# the whole point of "containerize and publish this pipeline") and ECR
+# (required for EMR Serverless to actually run it — it only pulls custom
+# images from ECR, never Docker Hub directly). Does NOT submit a paid EMR
+# Serverless job — see run-pipeline.yml (manual-only) for that.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+env:
+  AWS_REGION: ap-south-1
+  DOCKERHUB_IMAGE: adarshmurali/tradelens
+  ECR_REPOSITORY: tradelens
+  EMR_APPLICATION_ID: ${{ secrets.TRADELENS_EMR_APP_ID }}
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push (Docker Hub + ECR)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.DOCKERHUB_IMAGE }}:latest
+            ${{ env.DOCKERHUB_IMAGE }}:${{ github.sha }}
+            ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+            ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+
+      - name: Point the EMR Serverless application at the new image
+        run: |
+          aws emr-serverless update-application \
+            --application-id "${{ env.EMR_APPLICATION_ID }}" \
+            --image-configuration "imageUri=${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}" \
+            --region "${{ env.AWS_REGION }}"
