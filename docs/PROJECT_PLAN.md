@@ -85,25 +85,43 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - **Done when:** `surveillance_alerts` gold table flags the injected patterns.
 
 ## Phase 6 — AWS foundation (first AWS spend — be careful)
-- [ ] `infra/README.md`: set **AWS Budgets $5 alarm FIRST**
-- [ ] Create S3 buckets (`tradelens-raw-*`, `tradelens-curated-*`), Glue DB,
-      EMR Serverless application, IAM role (`scripts/setup_aws.sh`)
+- [x] `infra/README.md`: set **AWS Budgets $5 alarm FIRST** — automated in
+      `scripts/setup_aws.sh` via `aws budgets create-budget`
+- [x] Create S3 buckets (`tradelens-raw-*`, `tradelens-curated-*`), Glue DB,
+      EMR Serverless application, IAM role (`scripts/setup_aws.sh`) — the EMR
+      Serverless application needs an explicit VPC (S3 gateway endpoint) or
+      its default networking cannot reach S3 at all; see the script's
+      comments and the Sep-2026 debugging notes in memory
 - [ ] Generate a larger demo-scale dataset locally (more symbols / longer
       range / higher order density than the local-dev config — see below),
       then upload it + code to S3. Not a literal "sample": EMR Serverless
       bills per job-second, not idle time, so a bigger one-off run is cheap.
+      **Deferred** — Phase 6/7 validated end-to-end against the existing
+      local-dev dataset first, deliberately isolating "does the AWS plumbing
+      work" from "does the vectorized generator produce correct big data."
 - [ ] Before generating at demo scale: vectorize `generate_order_events.py`'s
       per-order Python loop (numpy/pandas vectorized ops) — the current
       dataclass-per-order approach is fine at ~5M rows (~2 min) but won't
       scale to tens of millions in reasonable local time.
-- **Done when:** buckets/role/app exist and billing alarm is active.
+- **Done when:** buckets/role/app exist and billing alarm is active. (Demo-
+      scale data generation carried forward as its own follow-up.)
 
 ## Phase 7 — Run on EMR Serverless
-- [ ] `scripts/submit_emr_serverless.sh`: package `src/`, submit `jobs/run_pipeline.py`
-- [ ] Confirm gold Delta tables land in `tradelens-curated-*`
-- [ ] Register schemas in Glue (crawler or explicit DDL)
+- [x] `scripts/submit_emr_serverless.sh`: package `src/`, submit `jobs/run_pipeline.py`
+      — needs the Delta jars + `delta`/`yaml`/`dotenv` Python packages
+      pre-staged to S3 (no internet egress to resolve them at submit time),
+      and explicit executor sizing kept under the account's EMR Serverless
+      vCPU quota (16 in ap-south-1 as of 2026-09-05)
+- [x] Confirm gold Delta tables land in `tradelens-curated-*` — verified:
+      `fills`, `market_analytics`, `surveillance_alerts` all present; the
+      same precision/recall numbers as the local run (spoofing 1.00/1.00,
+      wash_trade 0.95/1.00, layering 0.98/0.92)
+- [ ] Register schemas in Glue (crawler or explicit DDL) — carried forward to
+      Phase 8 (Athena needs this; the batch job itself doesn't)
 - **Done when:** the same pipeline that ran locally completes on EMR Serverless
-      and the app scales back to zero afterward.
+      and the app scales back to zero afterward. Confirmed: full run
+      succeeded (~54 min, ~$0.85), `autoStopConfiguration` (15 min idle
+      timeout) scales the application to $0 with no action needed.
 
 ## Phase 8 — Serving A: Athena
 - [ ] `sql/athena/create_tables.sql`: external tables over the gold S3 data
