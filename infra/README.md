@@ -83,6 +83,14 @@ memory). `scripts/submit_emr_serverless.sh` and
 `.github/workflows/run-pipeline.yml` now just reference an in-image
 entryPoint — no jar/zip staging.
 
+A custom image needs one thing beyond the job's own execution role: an ECR
+**repository policy** granting the `emr-serverless.amazonaws.com` service
+principal `ecr:BatchGetImage`, `ecr:GetDownloadUrlForLayer`,
+`ecr:BatchCheckLayerAvailability`, and `ecr:DescribeImages` — pulling the
+image happens at a different layer (the EMR Serverless service itself),
+which `tradelens-emr-job-role`'s permissions don't cover. `scripts/
+setup_aws.sh` creates the ECR repo and sets this policy automatically.
+
 **Building it is CI's job, not your laptop's.** The base image is a full
 Spark/Hadoop distribution — a local build once starved an 8GB dev machine
 down to ~60MB free RAM mid-build. `scripts/deploy_docker.sh` exists for a

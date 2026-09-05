@@ -156,4 +156,19 @@ sed -i.bak "s#^TRADELENS_EMR_APP_ID=.*#TRADELENS_EMR_APP_ID=${APP_ID}#" .env
 sed -i.bak "s#^TRADELENS_EMR_JOB_ROLE_ARN=.*#TRADELENS_EMR_JOB_ROLE_ARN=${ROLE_ARN}#" .env
 rm -f .env.bak
 
-echo ">> Done. Buckets, Glue DB, IAM role, and EMR Serverless app (\$0 while idle) are ready."
+echo ">> Creating ECR repository 'tradelens' (for the custom runtime image)"
+aws ecr create-repository --repository-name tradelens --region "${AWS_REGION}" \
+  --image-scanning-configuration scanOnPush=true >/dev/null 2>&1 && echo "   Created." || echo "   (already exists)"
+
+# The job's OWN execution role (tradelens-emr-job-role, above) does not cover
+# this — pulling the custom image happens at a different layer, orchestrated
+# by the EMR Serverless SERVICE itself, which needs its own resource-based
+# permission on the ECR repo. Confirmed by trial: start-job-run first failed
+# on ecr:BatchGetImage, then (after adding that) on ecr:DescribeImages — both
+# needed together.
+echo ">> Granting the EMR Serverless service principal pull access on it"
+ECR_POLICY='{"Version":"2012-10-17","Statement":[{"Sid":"AllowEMRServerlessPull","Effect":"Allow","Principal":{"Service":"emr-serverless.amazonaws.com"},"Action":["ecr:BatchGetImage","ecr:GetDownloadUrlForLayer","ecr:BatchCheckLayerAvailability","ecr:DescribeImages","ecr:DescribeRepositories","ecr:GetRepositoryPolicy"]}]}'
+aws ecr set-repository-policy --repository-name tradelens --policy-text "${ECR_POLICY}" --region "${AWS_REGION}" >/dev/null
+echo "   Done."
+
+echo ">> Done. Buckets, Glue DB, IAM role, ECR repo, and EMR Serverless app (\$0 while idle) are ready."
