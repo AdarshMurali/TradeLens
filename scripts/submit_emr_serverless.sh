@@ -29,6 +29,16 @@ SPARK_SUBMIT_PARAMS+=" --conf spark.dynamicAllocation.initialExecutors=2"
 SPARK_SUBMIT_PARAMS+=" --conf spark.dynamicAllocation.maxExecutors=2"
 SPARK_SUBMIT_PARAMS+=" --conf spark.sql.shuffle.partitions=16"
 
+# The bucket names are job/environment-specific, not something to bake into
+# the (otherwise portable) image — config.yaml's ${TRADELENS_RAW_BUCKET} /
+# ${TRADELENS_CURATED_BUCKET} substitution needs these as real env vars on
+# the driver, or it fails immediately: `s3a://${TRADELENS_RAW_BUCKET}/raw`
+# (the literal, unexpanded string) -> "IllegalArgumentException: bucket is
+# null/empty". Confirmed by trial the first time this got dropped while
+# simplifying this script for the custom-image switch.
+SPARK_SUBMIT_PARAMS+=" --conf spark.emr-serverless.driverEnv.TRADELENS_RAW_BUCKET=${TRADELENS_RAW_BUCKET}"
+SPARK_SUBMIT_PARAMS+=" --conf spark.emr-serverless.driverEnv.TRADELENS_CURATED_BUCKET=${TRADELENS_CURATED_BUCKET}"
+
 # Logs to a bucket we can read via CLI, not just EMR's browser-only managed
 # dashboard — see scripts/watch_emr_job.sh. This is what actually surfaced
 # the VPC/S3 connectivity issue (silent multi-minute hang, zero errors) that
