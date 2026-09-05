@@ -96,6 +96,42 @@ aws iam put-role-policy \
 ROLE_ARN=$(aws iam get-role --role-name "${TRADELENS_EMR_JOB_ROLE_NAME}" --query 'Role.Arn' --output text)
 echo "   Role ARN: ${ROLE_ARN}"
 
+# EMR Serverless applications created WITHOUT an explicit VPC use AWS-managed
+# default networking — on this account/region that networking could not reach
+# S3 at all: spark.read.parquet() hung indefinitely (10+ minutes, confirmed
+# down to a single fully-qualified file, ruling out partition-discovery
+# overhead) with no error, just silence. Explicit VPC networking + an S3
+# gateway endpoint fixed it completely (same read: ~5 seconds). Using the
+# account's default VPC/subnets/security group rather than requiring the user
+# to provision a dedicated one for a portfolio project.
+echo ">> Finding default VPC for EMR Serverless networking"
+VPC_ID=$(aws ec2 describe-vpcs --filters "Name=isDefault,Values=true" --region "${AWS_REGION}" \
+  --query 'Vpcs[0].VpcId' --output text)
+if [ -z "${VPC_ID}" ] || [ "${VPC_ID}" = "None" ]; then
+  echo "   No default VPC found — create one (or a VPC of your own with an S3"
+  echo "   gateway endpoint) and adapt this script before continuing." >&2
+  exit 1
+fi
+SUBNET_IDS=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=${VPC_ID}" --region "${AWS_REGION}" \
+  --query 'Subnets[].SubnetId' --output text | tr '\t' ',')
+SG_ID=$(aws ec2 describe-security-groups --filters "Name=vpc-id,Values=${VPC_ID}" "Name=group-name,Values=default" \
+  --region "${AWS_REGION}" --query 'SecurityGroups[0].GroupId' --output text)
+echo "   VPC=${VPC_ID} subnets=${SUBNET_IDS} sg=${SG_ID}"
+
+echo ">> Ensuring an S3 gateway VPC endpoint exists"
+EXISTING_ENDPOINT=$(aws ec2 describe-vpc-endpoints --region "${AWS_REGION}" \
+  --filters "Name=vpc-id,Values=${VPC_ID}" "Name=service-name,Values=com.amazonaws.${AWS_REGION}.s3" \
+  --query 'VpcEndpoints[0].VpcEndpointId' --output text)
+if [ -n "${EXISTING_ENDPOINT}" ] && [ "${EXISTING_ENDPOINT}" != "None" ]; then
+  echo "   (already exists: ${EXISTING_ENDPOINT})"
+else
+  MAIN_ROUTE_TABLE=$(aws ec2 describe-route-tables --filters "Name=vpc-id,Values=${VPC_ID}" "Name=association.main,Values=true" \
+    --region "${AWS_REGION}" --query 'RouteTables[0].RouteTableId' --output text)
+  aws ec2 create-vpc-endpoint --vpc-id "${VPC_ID}" --service-name "com.amazonaws.${AWS_REGION}.s3" \
+    --route-table-ids "${MAIN_ROUTE_TABLE}" --vpc-endpoint-type Gateway --region "${AWS_REGION}" >/dev/null
+  echo "   Created on route table ${MAIN_ROUTE_TABLE}."
+fi
+
 echo ">> Creating EMR Serverless application '${TRADELENS_EMR_APP_NAME}'"
 EXISTING_APP_ID=$(aws emr-serverless list-applications --region "${AWS_REGION}" \
   --query "applications[?name=='${TRADELENS_EMR_APP_NAME}' && state!='TERMINATED'].id | [0]" --output text)
@@ -103,10 +139,13 @@ if [ -n "${EXISTING_APP_ID}" ] && [ "${EXISTING_APP_ID}" != "None" ]; then
   APP_ID="${EXISTING_APP_ID}"
   echo "   (already exists: ${APP_ID})"
 else
+  SUBNET_IDS_JSON=$(python -c "import sys,json; print(json.dumps(sys.argv[1].split(',')))" "${SUBNET_IDS}")
+  NETWORK_CONFIG="{\"subnetIds\":${SUBNET_IDS_JSON},\"securityGroupIds\":[\"${SG_ID}\"]}"
   APP_ID=$(aws emr-serverless create-application \
     --name "${TRADELENS_EMR_APP_NAME}" \
     --type SPARK \
     --release-label "${TRADELENS_EMR_RELEASE_LABEL}" \
+    --network-configuration "${NETWORK_CONFIG}" \
     --region "${AWS_REGION}" \
     --query 'applicationId' --output text)
   echo "   Created: ${APP_ID}"
