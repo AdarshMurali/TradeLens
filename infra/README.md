@@ -5,8 +5,19 @@
 
 ## 0. Billing alarm FIRST (AWS Budgets — always free)
 - Create a monthly cost budget of **$5** with an alert at 80% and 100%.
+  `scripts/setup_aws.sh` does this automatically via `aws budgets create-budget`
+  as its first step, reading `TRADELENS_BUDGET_LIMIT_USD` and
+  `TRADELENS_BILLING_ALERT_EMAIL` from `.env` — or create it manually:
   Console: Billing → Budgets → Create budget → Cost budget.
 - Optionally a $10 hard "zero-spend"-style alert as backup.
+
+## 0.5. Multiple AWS accounts on one machine
+If this machine has more than one AWS CLI profile configured (`aws configure
+list-profiles`), set `AWS_PROFILE` in `.env` to the correct one for this
+project **before running any script in `scripts/`** — every script sources
+`.env` and exports `AWS_PROFILE` from it, so nothing here ever falls back to
+whatever the ambient default profile happens to be. Verify with
+`aws sts get-caller-identity --profile <name>` before the first run.
 
 ## 1. Resources this project creates
 | Resource | Name | Idle cost |
@@ -40,6 +51,20 @@ aws redshift-serverless delete-namespace --namespace-name tradelens-redshift-ns
 # EMR Serverless app (optional; it's free idle)
 # aws emr-serverless delete-application --application-id <id>
 # S3: keep a small sample for demos, or empty buckets to reach true $0.
+```
+All teardown commands need `--profile <name>` (or an exported `AWS_PROFILE`)
+too, per SS0.5.
+
+Full foundation teardown (buckets, IAM role, EMR app, Glue DB), once you're
+done with the project entirely:
+```
+aws emr-serverless delete-application --application-id "$TRADELENS_EMR_APP_ID"
+aws iam delete-role-policy --role-name tradelens-emr-job-role --policy-name tradelens-emr-job-role-policy
+aws iam delete-role --role-name tradelens-emr-job-role
+aws glue delete-database --name tradelens_db
+aws s3 rb "s3://$TRADELENS_RAW_BUCKET" --force
+aws s3 rb "s3://$TRADELENS_CURATED_BUCKET" --force
+aws s3 rb "s3://$TRADELENS_CODE_BUCKET" --force
 ```
 
 ## 5. IaC (optional upgrade)
