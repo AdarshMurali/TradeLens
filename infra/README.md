@@ -70,3 +70,45 @@ aws s3 rb "s3://$TRADELENS_CODE_BUCKET" --force
 ## 5. IaC (optional upgrade)
 Terraform or CloudFormation for all of the above is a strong addition and a good
 extra resume signal. Add under `infra/terraform/` if you go that route.
+
+## 6. CI/CD and the Docker image
+The `Dockerfile` at the repo root builds TradeLens's EMR Serverless runtime
+image (extends AWS's own `public.ecr.aws/emr-serverless/spark/emr-7.2.0` base
+— custom images must extend an AWS-provided base, arbitrary bases aren't
+supported). It bakes in the Delta JARs, the `delta`/`yaml`/`dotenv` Python
+packages, and the application code + config — everything the earlier
+`--jars`/`--py-files`/`--files` approach had to fetch from S3 at job-submit
+time, which was fragile (see the debugging notes for Phase 6/7 in project
+memory). `scripts/submit_emr_serverless.sh` and
+`.github/workflows/run-pipeline.yml` now just reference an in-image
+entryPoint — no jar/zip staging.
+
+**Building it is CI's job, not your laptop's.** The base image is a full
+Spark/Hadoop distribution — a local build once starved an 8GB dev machine
+down to ~60MB free RAM mid-build. `scripts/deploy_docker.sh` exists for a
+more capable machine, but the default path is: push to `main`,
+`.github/workflows/deploy.yml` builds and pushes the image (Docker Hub as
+the primary published artifact, mirrored to ECR since EMR Serverless can
+only pull custom images from there — never Docker Hub directly), then
+updates the EMR Serverless application to use it via
+`aws emr-serverless update-application --image-configuration`.
+
+Three workflows:
+- `ci.yml` — runs pytest on every PR (and is reused by `deploy.yml`, so
+  pushes to `main` don't test twice).
+- `deploy.yml` — on push to `main`: test, then build+push the image to
+  Docker Hub + ECR, then point the application at the new image. Never
+  submits a job — no AWS compute spend happens here.
+- `run-pipeline.yml` — **manual only** (`workflow_dispatch`), per the user's
+  explicit choice: this is the one workflow that spends real EMR Serverless
+  compute, so it never fires on its own.
+
+**One-time setup** (GitHub repo secrets — Settings → Secrets and variables →
+Actions, or `gh secret set`): `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`
+for the `lavanya` account and `DOCKERHUB_TOKEN` (a Docker Hub access token,
+not your account password — generate one at hub.docker.com → Account
+Settings → Security) need to be set by you directly, since an agent
+shouldn't be the one handling raw credential material even to move it into
+a secret store. `DOCKERHUB_USERNAME`, `TRADELENS_EMR_APP_ID`,
+`TRADELENS_EMR_JOB_ROLE_ARN`, and `TRADELENS_CURATED_BUCKET` aren't
+credentials and are already set from `.env`.
