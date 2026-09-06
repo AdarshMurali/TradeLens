@@ -47,7 +47,13 @@ def _read(spark, fmt: str, path: str) -> DataFrame:
 
 
 def _write_delta(df: DataFrame, path: str, partition_by: list[str], mode: str = "overwrite") -> None:
-    (df.write.format("delta").mode(mode)
+    # Repartition on the partition columns first: without this, each write
+    # task can hold rows from many (dt, symbol) values and emits one file per
+    # task-per-value, multiplying shuffle-partition-count x distinct-value-
+    # count into a small-file explosion (this is what drove the S3 request
+    # cost spike — 160k+ tiny files in orders/fills from a single run).
+    writer = df.repartition(*partition_by) if partition_by else df.coalesce(1)
+    (writer.write.format("delta").mode(mode)
        .partitionBy(*partition_by).save(path))
 
 

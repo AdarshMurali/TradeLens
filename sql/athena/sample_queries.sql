@@ -34,6 +34,17 @@ WHERE dt = (SELECT max(dt) FROM tradelens_db.market_analytics)
 GROUP BY sector
 ORDER BY avg_volatility DESC;
 
+-- Alerts by day (Tableau's time-trend panel): surveillance_alerts has no
+-- timestamp of its own, so join back to orders on order_id to recover
+-- event_time/dt. orders (not fills) is the right join target — it has every
+-- event type, so spoofing/rapid_ordering order_ids (cancelled, never filled)
+-- resolve here too, not just wash_trade's.
+SELECT o.dt, a.pattern, count(*) AS alert_count
+FROM tradelens_db.surveillance_alerts a
+JOIN tradelens_db.orders o ON a.order_id = o.order_id
+GROUP BY o.dt, a.pattern
+ORDER BY o.dt;
+
 -- Busted trades from the MERGE INTO corrections demo (jobs/apply_trade_corrections.py).
 SELECT symbol, count(*) AS busted_count, sum(quantity) AS busted_quantity
 FROM tradelens_db.fills

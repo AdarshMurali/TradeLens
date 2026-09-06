@@ -1,4 +1,4 @@
--- Athena external tables over the gold S3 data (schema-on-read).
+-- Athena external tables over the gold (and one silver) S3 data (schema-on-read).
 --
 -- Gold is written by the Spark job as DELTA (not plain Parquet) — see
 -- jobs/run_pipeline.py's _write_delta(). Athena engine v3 reads a Delta
@@ -28,4 +28,16 @@ TBLPROPERTIES ('table_type' = 'DELTA');
 
 CREATE EXTERNAL TABLE IF NOT EXISTS tradelens_db.surveillance_alerts
 LOCATION 's3://${TRADELENS_CURATED_BUCKET}/gold/surveillance_alerts/'
+TBLPROPERTIES ('table_type' = 'DELTA');
+
+-- silver, not gold: surveillance_alerts has no timestamp column (it's
+-- order_id-grain, pre-filtered to risk_score >= threshold), so this is
+-- exposed for Tableau/analysts to join alerts back to event_time by
+-- order_id. orders is the right join target for that — NOT fills: fills is
+-- FILL events only, and spoofing/rapid_ordering order_ids were cancelled,
+-- never filled, so they'd join to nothing there. wash_trade's order_ids
+-- *are* FILL events, so either table recovers time for that one pattern,
+-- but orders is the only one that works for all three.
+CREATE EXTERNAL TABLE IF NOT EXISTS tradelens_db.orders
+LOCATION 's3://${TRADELENS_CURATED_BUCKET}/silver/orders/'
 TBLPROPERTIES ('table_type' = 'DELTA');
