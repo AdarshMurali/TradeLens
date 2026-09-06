@@ -34,16 +34,39 @@ WHERE dt = (SELECT max(dt) FROM tradelens_db.market_analytics)
 GROUP BY sector
 ORDER BY avg_volatility DESC;
 
--- Alerts by day (Tableau's time-trend panel): surveillance_alerts has no
--- timestamp of its own, so join back to orders on order_id to recover
--- event_time/dt. orders (not fills) is the right join target — it has every
--- event type, so spoofing/rapid_ordering order_ids (cancelled, never filled)
--- resolve here too, not just wash_trade's.
-SELECT o.dt, a.pattern, count(*) AS alert_count
+-- Tableau data source: full alert detail with a date attached. One row per
+-- order_id (surveillance_alerts' own grain) — build every panel (by pattern,
+-- top accounts, risk-score distribution, daily trend, detail table) off this
+-- in Tableau rather than re-querying Athena per chart.
+--
+-- surveillance_alerts has no timestamp of its own, so this joins back to
+-- orders on order_id to recover a date. orders (not fills) is the right join
+-- target — it has every event type, so spoofing/rapid_ordering order_ids
+-- (cancelled, never filled) resolve here too, not just wash_trade's.
+--
+-- IMPORTANT: orders is event-grain (one row per NEW/MODIFY/CANCEL/FILL), so
+-- a plain `JOIN orders ON order_id` fans out — an order with a NEW + CANCEL
+-- event joins to 2 rows, silently doubling every alert. Confirmed by trial:
+-- a naive join here doubled every pattern's count exactly (2500 vs the true
+-- 1250 for spoofing, etc.). Dedupe orders to one row per order_id FIRST
+-- (order_dates below), then join to that — never join alerts to orders
+-- directly.
+WITH order_dates AS (
+    SELECT order_id, MIN(dt) AS dt
+    FROM tradelens_db.orders
+    GROUP BY order_id
+)
+SELECT
+    a.order_id,
+    a.account_id,
+    a.symbol,
+    a.pattern,
+    a.risk_score,
+    a.latency_ms,
+    a.order_count,
+    o.dt
 FROM tradelens_db.surveillance_alerts a
-JOIN tradelens_db.orders o ON a.order_id = o.order_id
-GROUP BY o.dt, a.pattern
-ORDER BY o.dt;
+JOIN order_dates o ON a.order_id = o.order_id;
 
 -- Busted trades from the MERGE INTO corrections demo (jobs/apply_trade_corrections.py).
 SELECT symbol, count(*) AS busted_count, sum(quantity) AS busted_quantity
