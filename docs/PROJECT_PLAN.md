@@ -124,9 +124,21 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
       timeout) scales the application to $0 with no action needed.
 
 ## Phase 8 — Serving A: Athena
-- [ ] `sql/athena/create_tables.sql`: external tables over the gold S3 data
-- [ ] Sample analyst queries (top flagged accounts, alerts over time)
-- **Done when:** Athena returns results over gold data.
+- [x] `sql/athena/create_tables.sql`: external tables over the gold S3 data —
+      uses Athena engine v3's native Delta Lake table type
+      (`TBLPROPERTIES ('table_type'='DELTA')`), not `STORED AS PARQUET` +
+      `MSCK REPAIR TABLE`: schema and partitions come straight from the Delta
+      transaction log, which also stays correct after a future `MERGE INTO`
+      leaves tombstoned files behind (a plain Parquet external table has no
+      concept of that and would double-count). `scripts/setup_aws.sh` creates
+      the workgroup (`tradelens-athena-wg`, engine v3 explicit); `src/tradelens/
+      serving/athena_ddl.py` submits the DDL via the Athena Data API.
+- [x] Sample analyst queries — `sql/athena/sample_queries.sql` (alert volume
+      by pattern, top flagged accounts, highest-severity alerts, VWAP/
+      volatility trend by symbol, sector volatility, busted-trade rollup)
+- **Done when:** Athena returns results over gold data. Confirmed: queried
+      `surveillance_alerts` live — spoofing 1250, wash_trade 1338,
+      rapid_ordering 3076 alert rows, matching the pipeline's own TP counts.
 
 ## Phase 9 — Serving B: Redshift Serverless
 - [ ] `sql/redshift/create_tables.sql`: DDL with **dist key + sort key** chosen

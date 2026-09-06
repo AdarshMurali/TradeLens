@@ -171,4 +171,19 @@ ECR_POLICY='{"Version":"2012-10-17","Statement":[{"Sid":"AllowEMRServerlessPull"
 aws ecr set-repository-policy --repository-name tradelens --policy-text "${ECR_POLICY}" --region "${AWS_REGION}" >/dev/null
 echo "   Done."
 
-echo ">> Done. Buckets, Glue DB, IAM role, ECR repo, and EMR Serverless app (\$0 while idle) are ready."
+echo ">> Creating Athena workgroup '${TRADELENS_ATHENA_WORKGROUP}'"
+# Engine v3 is required for native Delta Lake table support (TBLPROPERTIES
+# ('table_type'='DELTA')) — see sql/athena/create_tables.sql.
+ATHENA_WG_CONFIG=$(cat <<JSON
+{
+  "ResultConfiguration": {"OutputLocation": "${TRADELENS_ATHENA_OUTPUT}"},
+  "EngineVersion": {"SelectedEngineVersion": "Athena engine version 3"}
+}
+JSON
+)
+aws athena create-work-group \
+  --name "${TRADELENS_ATHENA_WORKGROUP}" \
+  --configuration "${ATHENA_WG_CONFIG}" \
+  --region "${AWS_REGION}" >/dev/null 2>&1 && echo "   Created." || echo "   (already exists)"
+
+echo ">> Done. Buckets, Glue DB, IAM role, ECR repo, EMR Serverless app, and Athena workgroup (\$0 while idle) are ready."

@@ -5,19 +5,20 @@ PYTHON := python
 VENV := .venv
 PYTHONPATH := src
 
-.PHONY: help setup ingest run-local run-streaming test lint format deploy-code submit-emr clean
+.PHONY: help setup ingest run-local run-streaming test lint format deploy-docker submit-emr register-athena clean
 
 help:
-	@echo "setup        - create venv and install dependencies"
-	@echo "ingest       - fetch market data + generate synthetic order events"
-	@echo "run-local    - run the full batch pipeline locally"
-	@echo "run-streaming- run the optional streaming module locally"
-	@echo "test         - run pytest"
-	@echo "lint         - ruff checks"
-	@echo "format       - black + ruff --fix"
-	@echo "deploy-code  - sync src+config to the S3 code bucket"
-	@echo "submit-emr   - submit the batch job to EMR Serverless"
-	@echo "clean        - remove local build/warehouse artifacts"
+	@echo "setup           - create venv and install dependencies"
+	@echo "ingest          - fetch market data + generate synthetic order events"
+	@echo "run-local       - run the full batch pipeline locally"
+	@echo "run-streaming   - run the optional streaming module locally"
+	@echo "test            - run pytest"
+	@echo "lint            - ruff checks"
+	@echo "format          - black + ruff --fix"
+	@echo "deploy-docker   - build+push the EMR runtime image locally (non-default; see infra/README.md SS6 - CI does this on push to main)"
+	@echo "submit-emr      - submit the batch job to EMR Serverless"
+	@echo "register-athena - register the gold Delta tables in Glue via Athena DDL"
+	@echo "clean           - remove local build/warehouse artifacts"
 
 setup:
 	$(PYTHON) -m venv $(VENV)
@@ -48,11 +49,14 @@ lint:
 format:
 	black src tests && ruff check --fix src tests
 
-deploy-code:
-	bash scripts/deploy_code.sh
+deploy-docker:
+	bash scripts/deploy_docker.sh
 
 submit-emr:
 	bash scripts/submit_emr_serverless.sh
+
+register-athena:
+	$(ENV_GUARD) TRADELENS_ENV=aws $(PYTHON) -m tradelens.serving.athena_ddl
 
 clean:
 	rm -rf spark-warehouse metastore_db derby.log .pytest_cache **/__pycache__

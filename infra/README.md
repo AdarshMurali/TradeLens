@@ -120,3 +120,22 @@ shouldn't be the one handling raw credential material even to move it into
 a secret store. `DOCKERHUB_USERNAME`, `TRADELENS_EMR_APP_ID`,
 `TRADELENS_EMR_JOB_ROLE_ARN`, and `TRADELENS_CURATED_BUCKET` aren't
 credentials and are already set from `.env`.
+
+## 7. Athena (Phase 8)
+`scripts/setup_aws.sh` creates the `tradelens-athena-wg` workgroup with
+**engine v3 explicitly** — that's required for Athena's native Delta Lake
+table support (`TBLPROPERTIES ('table_type'='DELTA')` in
+`sql/athena/create_tables.sql`), which reads schema and partitions straight
+from the Delta transaction log. Deliberately not `STORED AS PARQUET` +
+`MSCK REPAIR TABLE`: that approach has no concept of Delta's transaction log,
+so it would double-count rows once anything (e.g. the trade-corrections
+`MERGE INTO`) leaves tombstoned files behind.
+
+Register the tables (idempotent — `CREATE ... IF NOT EXISTS`) after any run
+that changes the gold schema:
+```
+make register-athena
+```
+This runs `src/tradelens/serving/athena_ddl.py`, which submits each statement
+in `sql/athena/create_tables.sql` via the Athena Data API and polls for
+completion. Sample analyst queries are in `sql/athena/sample_queries.sql`.
