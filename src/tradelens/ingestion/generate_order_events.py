@@ -14,8 +14,9 @@ A ground-truth label file is written alongside so detection precision/recall can
 be measured later. Always disclose in interviews that this data is synthetic.
 
 Run: python -m tradelens.ingestion.generate_order_events
-Output: <raw>/orders/dt=<date>/<symbol>.parquet
-        <raw>/orders_labels/dt=<date>/<symbol>.parquet   (ground truth)
+Output: <raw>/orders/<symbol>.parquet         -- one file per symbol
+        <raw>/orders_labels/<symbol>.parquet  -- one file per symbol (ground truth)
+Not one-file-per-symbol-day: see fetch_market_data.py's docstring for why.
 
 NOTE: This is intentionally a clear, extensible skeleton. Flesh out the injection
 functions (see TODOs) to make patterns more realistic. The event schema and the
@@ -66,10 +67,10 @@ class OrderEvent:
 
 def _load_reference_prices(raw_root: str, symbol: str) -> pd.DataFrame:
     """Read the landed OHLCV for a symbol to anchor realistic prices."""
-    files = list((Path(raw_root) / "market").glob(f"dt=*/{symbol}.parquet"))
-    if not files:
+    f = Path(raw_root) / "market" / f"{symbol}.parquet"
+    if not f.exists():
         return pd.DataFrame()
-    return pd.concat([pd.read_parquet(f) for f in files], ignore_index=True)
+    return pd.read_parquet(f)
 
 
 def _gen_normal_orders(symbol, day, prices_row, accounts, n, rng, counter):
@@ -200,6 +201,13 @@ def generate() -> None:
         if ref.empty:
             logger.warning("No reference prices for %s; run fetch_market_data first.", symbol)
             continue
+
+        # Accumulate every day's events/labels for this symbol and write ONCE
+        # at the end, rather than once per day -- one-file-per-symbol-day was
+        # the exact small-file pattern already fixed on the write side (see
+        # module docstring); this is the same fix applied to generation.
+        symbol_events: list[OrderEvent] = []
+        symbol_labels: list[dict] = []
         for _, row in ref.iterrows():
             day = row["dt"]
             ev, lb = _gen_normal_orders(symbol, day, row, accounts,
@@ -210,15 +218,18 @@ def generate() -> None:
                 e, l = _inject_wash_trade(symbol, day, row, accounts, rng, counter); ev += e; lb += l
             if rng.random() < syn["inject"]["layering_rate"] * EPISODES_PER_RATE_UNIT:
                 e, l = _inject_layering(symbol, day, row, accounts, rng, counter); ev += e; lb += l
+            symbol_events += ev
+            symbol_labels += lb
 
-            ev_df = pd.DataFrame([asdict(x) for x in ev])[EVENT_SCHEMA]
-            out = Path(raw_root) / "orders" / f"dt={day}"; out.mkdir(parents=True, exist_ok=True)
-            ev_df.to_parquet(out / f"{symbol}.parquet", index=False)
+        out = Path(raw_root) / "orders"; out.mkdir(parents=True, exist_ok=True)
+        ev_df = pd.DataFrame([asdict(x) for x in symbol_events])[EVENT_SCHEMA]
+        ev_df.to_parquet(out / f"{symbol}.parquet", index=False)
 
-            lb_df = pd.DataFrame(lb)
-            lout = Path(raw_root) / "orders_labels" / f"dt={day}"; lout.mkdir(parents=True, exist_ok=True)
-            lb_df.to_parquet(lout / f"{symbol}.parquet", index=False)
-        logger.info("Generated order events for %s", symbol)
+        lout = Path(raw_root) / "orders_labels"; lout.mkdir(parents=True, exist_ok=True)
+        lb_df = pd.DataFrame(symbol_labels)
+        lb_df.to_parquet(lout / f"{symbol}.parquet", index=False)
+
+        logger.info("Generated %d order events for %s", len(ev_df), symbol)
 
     logger.info("Order events + ground-truth labels landed under %s", raw_root)
 

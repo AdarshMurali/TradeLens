@@ -1,7 +1,13 @@
-"""Fetch historical OHLCV via yfinance and land it as raw partitioned files.
+"""Fetch historical OHLCV via yfinance and land it as raw files.
 
 Free, no API key. Run: python -m tradelens.ingestion.fetch_market_data
-Output: <raw>/market/dt=<date>/<symbol>.parquet   (partition-friendly)
+Output: <raw>/market/<symbol>.parquet   -- one file per symbol, spanning the
+whole date range. NOT one-file-per-symbol-day: `dt` is already a real column
+in the schema (not just path-encoded), so a per-day directory layout bought
+nothing downstream except a file-count explosion that scales with
+symbols x days instead of symbols alone -- confirmed against real data,
+see the small-file fix in jobs/run_pipeline.py's _write_delta for the
+bronze/silver/gold-layer version of the same bug.
 """
 from __future__ import annotations
 
@@ -47,11 +53,9 @@ def fetch() -> None:
         # string `dt` column above is the documented date column downstream.
         df = df.drop(columns=[date_col])
 
-        # Write one file per (symbol) partitioned by dt via a single directory tree.
-        for dt, part in df.groupby("dt"):
-            out_dir = Path(raw_root) / "market" / f"dt={dt}"
-            out_dir.mkdir(parents=True, exist_ok=True)
-            part.to_parquet(out_dir / f"{symbol}.parquet", index=False)
+        out_dir = Path(raw_root) / "market"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        df.to_parquet(out_dir / f"{symbol}.parquet", index=False)
         logger.info("Wrote %s rows for %s", len(df), symbol)
 
     logger.info("Market data landed under %s/market", raw_root)
