@@ -8,6 +8,7 @@ Reads/writes happen HERE; transformation modules stay pure and I/O-free.
 from __future__ import annotations
 
 import os
+import time
 from datetime import datetime, timezone
 
 from delta.tables import DeltaTable
@@ -148,6 +149,29 @@ def main() -> None:
     unsalted_rapid.explain()
     logger.info("Skew comparison - AFTER salting (rapid_order_counts_salted):")
     rapid.explain()
+
+    # .explain() above only prints a PLAN — it never executes the query, so
+    # by itself it can't show real skew (task-duration imbalance, shuffle
+    # bytes) in the Spark UI. This diagnostic actually runs both paths so
+    # the Stages tab has two real, comparable stages to inspect side by
+    # side: the unsalted one should show a handful of tasks running far
+    # longer than the rest (the skew), the salted one should show even
+    # task durations. Opt-in only (TRADELENS_SKEW_DIAGNOSTIC=true) — it
+    # costs real compute to materialize a comparison the production output
+    # doesn't need (only `rapid`, the salted result, feeds the alerts
+    # table below), so it never runs by default.
+    if os.getenv("TRADELENS_SKEW_DIAGNOSTIC", "false").lower() == "true":
+        t0 = time.perf_counter()
+        unsalted_count = unsalted_rapid.count()
+        t1 = time.perf_counter()
+        salted_count = rapid.count()
+        t2 = time.perf_counter()
+        logger.info(
+            "Skew diagnostic: unsalted count=%d in %.1fs; salted count=%d in %.1fs"
+            " (open the job's Spark UI -> Stages tab to compare task-duration"
+            " spread and shuffle read/write bytes between the two)",
+            unsalted_count, t1 - t0, salted_count, t2 - t1,
+        )
 
     alert_cols = ["order_id", "account_id", "symbol", "pattern", "latency_ms", "order_count"]
     alerts = (
