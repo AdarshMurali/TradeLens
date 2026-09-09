@@ -1,0 +1,148 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1560" height="950" viewBox="0 0 1560 950" font-family="Segoe UI, Arial, sans-serif">
+<title>TradeLens Technical Architecture</title>
+<rect x="0" y="0" width="1560" height="950" fill="#ffffff"/>
+
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="8" refX="6.5" refY="3" orient="auto" markerUnits="userSpaceOnUse">
+    <path d="M0,0 L7,3 L0,6 z" fill="#111111"/>
+  </marker>
+  <linearGradient id="gGreen" x1="0%" x2="100%" y1="100%" y2="0%"><stop offset="0%" stop-color="#1B660F"/><stop offset="100%" stop-color="#7AA116"/></linearGradient>
+  <linearGradient id="gPurple" x1="0%" x2="100%" y1="100%" y2="0%"><stop offset="0%" stop-color="#4D27AA"/><stop offset="100%" stop-color="#8C4FFF"/></linearGradient>
+  <linearGradient id="gBlue" x1="0%" x2="100%" y1="100%" y2="0%"><stop offset="0%" stop-color="#2E27AD"/><stop offset="100%" stop-color="#527FFF"/></linearGradient>
+  <linearGradient id="gRed" x1="0%" x2="100%" y1="100%" y2="0%"><stop offset="0%" stop-color="#bd0816"/><stop offset="100%" stop-color="#ff5252"/></linearGradient>
+  <linearGradient id="gPink" x1="0%" x2="100%" y1="100%" y2="0%"><stop offset="0%" stop-color="#b0084d"/><stop offset="100%" stop-color="#ff4f8b"/></linearGradient>
+  <linearGradient id="gOrange" x1="0%" x2="100%" y1="100%" y2="0%"><stop offset="0%" stop-color="#B95000"/><stop offset="100%" stop-color="#ED7100"/></linearGradient>
+  <linearGradient id="gNavy" x1="0%" x2="100%" y1="100%" y2="0%"><stop offset="0%" stop-color="#2b1a4d"/><stop offset="100%" stop-color="#5b3fae"/></linearGradient>
+</defs>
+
+<text x="780" y="32" text-anchor="middle" font-size="24" font-weight="700" fill="#1a1a1a">TradeLens — Technical Architecture</text>
+<text x="780" y="54" text-anchor="middle" font-size="12.5" font-weight="400" fill="#6b6b6b">Batch Spark pipeline on AWS EMR Serverless (custom Docker image) · Delta Lake medallion lakehouse on S3 · Athena live, Redshift Serverless planned</text>
+
+<!-- ===================== CI/CD ZONE ===================== -->
+<rect x="20" y="75" width="230" height="520" rx="14" fill="none" stroke="#c9c9c9" stroke-width="1.4" stroke-dasharray="7,5"/>
+<text x="135" y="97" text-anchor="middle" font-size="11.5" font-weight="700" fill="#555555">CI / CD (GitHub Actions)</text>
+
+<g transform="translate(111,126) scale(0.1719)"><path fill="#161614" d="M128.001 0C57.317 0 0 57.307 0 128.001c0 56.554 36.676 104.535 87.535 121.46c6.397 1.185 8.746-2.777 8.746-6.158c0-3.052-.12-13.135-.174-23.83c-35.61 7.742-43.124-15.103-43.124-15.103c-5.823-14.795-14.213-18.73-14.213-18.73c-11.613-7.944.876-7.78.876-7.78c12.853.902 19.621 13.19 19.621 13.19c11.417 19.568 29.945 13.911 37.249 10.64c1.149-8.272 4.466-13.92 8.127-17.116c-28.431-3.236-58.318-14.212-58.318-63.258c0-13.975 5-25.394 13.188-34.358c-1.329-3.224-5.71-16.242 1.24-33.874c0 0 10.749-3.44 35.21 13.121c10.21-2.836 21.16-4.258 32.038-4.307c10.878.049 21.837 1.47 32.066 4.307c24.431-16.56 35.165-13.12 35.165-13.12c6.967 17.63 2.584 30.65 1.255 33.873c8.207 8.964 13.173 20.383 13.173 34.358c0 49.163-29.944 59.988-58.447 63.157c4.591 3.972 8.682 11.762 8.682 23.704c0 17.126-.148 30.91-.148 35.126c0 3.407 2.304 7.398 8.792 6.14C219.37 232.5 256 184.537 256 128.002C256 57.307 198.691 0 128.001 0"/></g>
+<text x="135" y="192" text-anchor="middle" font-size="12" font-weight="600" fill="#1a1a1a">GitHub</text>
+<text x="135" y="207" text-anchor="middle" font-size="12" font-weight="600" fill="#1a1a1a">main branch</text>
+
+<g transform="translate(111,236) scale(0.1719)"><path fill="#4a7ebf" d="M53.604 0c29.604 0 53.604 23.992 53.604 53.59c0 29.09-23.189 52.75-52.093 53.553c0 2.461.109 7.111 1.501 9.92c1.933 3.893 13.525 11.144 24.892 11.144h4.084c2.567-18.271 18.257-32.332 37.24-32.332c18.906 0 34.55 13.946 37.211 32.11h21.13c2.661-18.164 18.304-32.11 37.21-32.11c20.775 0 37.617 16.837 37.617 37.607s-16.842 37.606-37.617 37.606c-18.906 0-34.55-13.948-37.21-32.11h-21.129c-2.66 18.162-18.305 32.11-37.212 32.11c-18.87 0-34.494-13.893-37.199-32.007l-4.515.135c-7.435-.056-15.29-2.042-21.598-6.328c-1.72-1.169-3.415-2.397-5.182-3.56v2.441c-.01.79-.153 12.657-.164 25.833v2.79c.005 8.641.073 17.545.277 24.04c.446 14.246 12.034 25.745 24.822 28.436c1.663.35 4.52.394 6.321.238c2.571-18.264 18.26-32.32 37.238-32.32c20.774 0 37.616 16.838 37.616 37.607c0 20.77-16.842 37.607-37.616 37.607c-18.769 0-34.323-13.744-37.153-31.714h-3.254c-24.436-1.334-39.628-23.746-39.363-41.923c.334-22.877.082-45.764.079-68.646v-7.565C18.546 101.286 0 79.606 0 53.591C0 23.992 23.999 0 53.604 0"/><path fill="#85b3df" d="M133.227 223.88a5.497 5.497 0 1 0 .001-10.996a5.497 5.497 0 0 0 0 10.995m106.205 21.128c-14.702 0-26.62-11.915-26.62-26.614c0-14.698 11.918-26.614 26.62-26.614c14.701 0 26.62 11.916 26.62 26.614s-11.919 26.614-26.62 26.614"/></g>
+<text x="135" y="302" text-anchor="middle" font-size="12" font-weight="600" fill="#1a1a1a">GitHub Actions</text>
+<text x="135" y="317" text-anchor="middle" font-size="11" font-weight="600" fill="#1a1a1a">test · build · push</text>
+
+<g transform="translate(111,346) scale(0.1719)"><defs><linearGradient id="dh" x1="0%" x2="100%" y1="100%" y2="0%"><stop offset="0%" stop-color="#0d5fa8"/><stop offset="100%" stop-color="#2396ed"/></linearGradient></defs><rect width="256" height="256" rx="40" fill="url(#dh)"/><path fill="#fff" d="M226.7 106.4c-5.8-4-19-5.5-29.3-3.5c-1.2-10-6.7-18.7-16.3-26.5l-5.5-4l-3.8 5.7c-4.8 7.5-7.2 18-6.5 28c.2 3.5 1.4 9.7 5 15.2c-3.4 2-10.3 4.5-19.5 4.5H29.2v2c-1.7 10-1.7 41.2 18 65.2c14.9 18.2 37 27.5 66 27.5c62.9 0 109.5-30.2 131.4-85c8.6.2 27.1 0 36.5-18.7c.2-.5.7-1.5 2.4-5.2z"/></g>
+<text x="135" y="412" text-anchor="middle" font-size="12" font-weight="600" fill="#1a1a1a">Docker Hub</text>
+<text x="135" y="427" text-anchor="middle" font-size="10.5" font-weight="600" fill="#1a1a1a">adarshmurali/tradelens</text>
+
+<g transform="translate(111,456) scale(1)"><rect width="48" height="48" rx="8" fill="url(#gOrange)"/><rect x="10" y="14" width="28" height="20" rx="2" fill="none" stroke="#fff" stroke-width="2.2"/><line x1="10" y1="20" x2="38" y2="20" stroke="#fff" stroke-width="1.6"/><line x1="10" y1="27" x2="38" y2="27" stroke="#fff" stroke-width="1.6"/></g>
+<text x="135" y="522" text-anchor="middle" font-size="12" font-weight="600" fill="#1a1a1a">Amazon ECR</text>
+<text x="135" y="537" text-anchor="middle" font-size="10.5" font-weight="600" fill="#1a1a1a">image mirror for EMR</text>
+
+<text x="135" y="565" text-anchor="middle" font-size="9.5" fill="#555555">2 workflows: auto build+deploy (push)</text>
+<text x="135" y="578" text-anchor="middle" font-size="9.5" fill="#555555">· manual job-run (never fires alone)</text>
+
+<line x1="135" y1="174" x2="135" y2="212" stroke="#111111" stroke-width="1.3" marker-end="url(#arrowhead)"/>
+<line x1="135" y1="284" x2="135" y2="322" stroke="#111111" stroke-width="1.3" marker-end="url(#arrowhead)"/>
+<line x1="135" y1="394" x2="135" y2="432" stroke="#111111" stroke-width="1.3" marker-end="url(#arrowhead)"/>
+
+<!-- ===================== LOCAL DEV ZONE ===================== -->
+<rect x="20" y="615" width="230" height="170" rx="14" fill="none" stroke="#c9c9c9" stroke-width="1.4" stroke-dasharray="7,5"/>
+<text x="135" y="637" text-anchor="middle" font-size="11.5" font-weight="700" fill="#555555">Local Dev (Python)</text>
+<g transform="translate(111,665) scale(1)"><rect width="48" height="48" rx="8" fill="#3a3a3a"/><rect x="9" y="9" width="30" height="21" rx="2" fill="none" stroke="#fff" stroke-width="2"/><text x="24" y="24" text-anchor="middle" font-size="10" fill="#7CFC00" font-family="Consolas, monospace">&gt;_</text><line x1="16" y1="36" x2="32" y2="36" stroke="#fff" stroke-width="2"/></g>
+<text x="135" y="747" text-anchor="middle" font-size="12" font-weight="600" fill="#1a1a1a">Ingestion Scripts</text>
+<text x="135" y="762" text-anchor="middle" font-size="10" font-weight="600" fill="#1a1a1a">yfinance + synthetic generator</text>
+
+<!-- ===================== AWS ZONE ===================== -->
+<rect x="300" y="60" width="880" height="560" rx="16" fill="none" stroke="#FF9900" stroke-width="1.8" stroke-dasharray="7,5"/>
+<text x="318" y="48" text-anchor="start" font-size="12" font-weight="700" fill="#FF9900">AWS · ap-south-1</text>
+
+<!-- top strip: security / governance -->
+<g transform="translate(396,116) scale(1)"><rect width="48" height="48" rx="8" fill="url(#gRed)"/><path fill="#fff" d="M17 27h14V17H17zm17 3H14V14h20zm-8.5-5a1.5 1.5 0 1 1 0-3a1.5 1.5 0 0 1 0 3m2.5-.9v3.4h-5v-3.4a3 3 0 1 1 5 0"/></g>
+<text x="420" y="182" text-anchor="middle" font-size="12" font-weight="600" fill="#1a1a1a">IAM Role</text>
+<text x="420" y="197" text-anchor="middle" font-size="10" font-weight="600" fill="#1a1a1a">least-privilege EMR job role</text>
+
+<g transform="translate(576,116) scale(1)"><rect width="48" height="48" rx="8" fill="url(#gPink)"/><circle cx="24" cy="24" r="12" fill="none" stroke="#fff" stroke-width="2.2"/><text x="24" y="29" text-anchor="middle" font-size="15" font-weight="700" fill="#fff">$</text></g>
+<text x="600" y="182" text-anchor="middle" font-size="12" font-weight="600" fill="#1a1a1a">AWS Budgets</text>
+<text x="600" y="197" text-anchor="middle" font-size="10" font-weight="600" fill="#1a1a1a">$5/mo alarm → email</text>
+
+<g transform="translate(756,116) scale(1)"><rect width="48" height="48" rx="8" fill="url(#gNavy)"/><circle cx="14" cy="16" r="4" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="34" cy="16" r="4" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="24" cy="34" r="4" fill="none" stroke="#fff" stroke-width="1.8"/><line x1="17.5" y1="18" x2="21" y2="31" stroke="#fff" stroke-width="1.6"/><line x1="30.5" y1="18" x2="27" y2="31" stroke="#fff" stroke-width="1.6"/><line x1="18" y1="16" x2="30" y2="16" stroke="#fff" stroke-width="1.6"/></g>
+<text x="780" y="182" text-anchor="middle" font-size="12" font-weight="600" fill="#1a1a1a">VPC + S3 Gateway</text>
+<text x="780" y="197" text-anchor="middle" font-size="10" font-weight="600" fill="#1a1a1a">endpoint (required for S3 access)</text>
+
+<!-- main pipeline row -->
+<g transform="translate(366,296) scale(1)"><rect width="48" height="48" rx="8" fill="url(#gGreen)"/><path fill="#fff" d="M24 10c8 0 14 2.3 14 5s-6 5-14 5s-14-2.3-14-5s6-5 14-5m-14 8.5c0 2.7 6 5 14 5s14-2.3 14-5V22c0 2.7-6 5-14 5s-14-2.3-14-5zm0 8.5c0 2.7 6 5 14 5s14-2.3 14-5v3.5c0 2.7-6 5-14 5s-14-2.3-14-5zm0 8.5c0 2.7 6 5 14 5s14-2.3 14-5V38c0 2.7-6 5-14 5s-14-2.3-14-5z"/></g>
+<text x="390" y="362" text-anchor="middle" font-size="12" font-weight="600" fill="#1a1a1a">S3 (raw)</text>
+<text x="390" y="377" text-anchor="middle" font-size="10" font-weight="600" fill="#1a1a1a">tradelens-raw-*</text>
+
+<g transform="translate(536,296) scale(1)"><rect width="48" height="48" rx="8" fill="url(#gPurple)"/><path fill="#fff" d="M24 8l14 8v16l-14 8l-14-8V16z" fill-opacity="0" stroke="#fff" stroke-width="2"/><path fill="#fff" d="M24 12l10 5.7v11.4L24 35l-10-5.9V17.7z"/></g>
+<g transform="translate(568,288) scale(1)"><path fill="#E25A1C" d="M12 22c2-6 0-10-3-13c1 5-1 7-3 10c-2 3-2 7 1 10c-1-3 0-5 2-7c0 2 0 4 2 5c-1-2 0-4 1-5"/></g>
+<text x="560" y="362" text-anchor="middle" font-size="12" font-weight="600" fill="#1a1a1a">EMR Serverless</text>
+<text x="560" y="377" text-anchor="middle" font-size="10" font-weight="600" fill="#1a1a1a">Apache Spark, custom image</text>
+
+<g transform="translate(716,296) scale(1)"><rect width="48" height="48" rx="8" fill="url(#gGreen)"/><path fill="#fff" d="M24 10c8 0 14 2.3 14 5s-6 5-14 5s-14-2.3-14-5s6-5 14-5m-14 8.5c0 2.7 6 5 14 5s14-2.3 14-5V22c0 2.7-6 5-14 5s-14-2.3-14-5zm0 8.5c0 2.7 6 5 14 5s14-2.3 14-5v3.5c0 2.7-6 5-14 5s-14-2.3-14-5zm0 8.5c0 2.7 6 5 14 5s14-2.3 14-5V38c0 2.7-6 5-14 5s-14-2.3-14-5z"/></g>
+<text x="740" y="362" text-anchor="middle" font-size="12" font-weight="600" fill="#1a1a1a">S3 (curated)</text>
+<text x="740" y="377" text-anchor="middle" font-size="10" font-weight="600" fill="#1a1a1a">bronze→silver→gold (Delta)</text>
+
+<g transform="translate(886,296) scale(1)"><rect width="48" height="48" rx="8" fill="url(#gPurple)"/><rect x="10" y="12" width="28" height="8" rx="1.5" fill="none" stroke="#fff" stroke-width="1.8"/><rect x="10" y="22" width="28" height="8" rx="1.5" fill="none" stroke="#fff" stroke-width="1.8"/><rect x="10" y="32" width="28" height="8" rx="1.5" fill="none" stroke="#fff" stroke-width="1.8"/></g>
+<text x="910" y="362" text-anchor="middle" font-size="12" font-weight="600" fill="#1a1a1a">AWS Glue</text>
+<text x="910" y="377" text-anchor="middle" font-size="10" font-weight="600" fill="#1a1a1a">Data Catalog (tradelens_db)</text>
+
+<g transform="translate(1056,296) scale(1)"><rect width="48" height="48" rx="8" fill="url(#gPurple)"/><circle cx="21" cy="21" r="9" fill="none" stroke="#fff" stroke-width="2.4"/><line x1="27.5" y1="27.5" x2="36" y2="36" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></g>
+<text x="1080" y="362" text-anchor="middle" font-size="12" font-weight="600" fill="#1a1a1a">Amazon Athena</text>
+<text x="1080" y="377" text-anchor="middle" font-size="10" font-weight="600" fill="#1a1a1a">engine v3 · native Delta tables</text>
+
+<line x1="414" y1="320" x2="536" y2="320" stroke="#111111" stroke-width="1.3" marker-end="url(#arrowhead)"/>
+<line x1="584" y1="320" x2="716" y2="320" stroke="#111111" stroke-width="1.3" marker-end="url(#arrowhead)"/>
+<line x1="764" y1="320" x2="886" y2="320" stroke="#111111" stroke-width="1.3" marker-end="url(#arrowhead)"/>
+<text x="825" y="308" text-anchor="middle" font-size="9.5" fill="#555555">register schema (DDL)</text>
+<line x1="934" y1="320" x2="1056" y2="320" stroke="#111111" stroke-width="1.3" marker-end="url(#arrowhead)"/>
+<text x="995" y="308" text-anchor="middle" font-size="9.5" fill="#555555">catalog metadata</text>
+
+<line x1="420" y1="164" x2="548" y2="298" stroke="#111111" stroke-width="1.1" stroke-dasharray="4,3"/>
+<line x1="780" y1="164" x2="580" y2="298" stroke="#111111" stroke-width="1.1" stroke-dasharray="4,3"/>
+
+<!-- Redshift (planned) -->
+<rect x="850" y="430" width="260" height="140" rx="10" fill="none" stroke="#9a9a9a" stroke-width="1.4" stroke-dasharray="6,4"/>
+<text x="980" y="422" text-anchor="middle" font-size="10.5" font-weight="700" fill="#9a9a9a">PLANNED — not yet built (Phase 9)</text>
+<g transform="translate(956,456) scale(1)"><rect width="48" height="48" rx="8" fill="url(#gBlue)" opacity="0.55"/><ellipse cx="24" cy="14" rx="12" ry="4.5" fill="none" stroke="#fff" stroke-width="2"/><path d="M12 14v20c0 2.5 5.4 4.5 12 4.5s12-2 12-4.5V14" fill="none" stroke="#fff" stroke-width="2"/><line x1="12" y1="24" x2="12" y2="24" stroke="#fff"/><path d="M12 24c0 2.5 5.4 4.5 12 4.5s12-2 12-4.5" fill="none" stroke="#fff" stroke-width="2"/></g>
+<text x="980" y="532" text-anchor="middle" font-size="12" font-weight="600" fill="#6b6b6b">Amazon Redshift Serverless</text>
+<text x="980" y="547" text-anchor="middle" font-size="10" font-weight="600" fill="#6b6b6b">curated BI warehouse (planned)</text>
+<line x1="740" y1="344" x2="965" y2="452" stroke="#111111" stroke-width="1.1" stroke-dasharray="5,4" marker-end="url(#arrowhead)"/>
+<text x="820" y="405" text-anchor="middle" font-size="9.5" fill="#555555">COPY from S3 (planned)</text>
+
+<!-- ===================== TABLEAU ZONE ===================== -->
+<rect x="1230" y="220" width="300" height="340" rx="14" fill="none" stroke="#0e4a7b" stroke-width="1.4" stroke-dasharray="7,5"/>
+<text x="1250" y="242" text-anchor="start" font-size="11.5" font-weight="700" fill="#0e4a7b">Tableau Desktop (packaged .twbx)</text>
+
+<g transform="translate(1326,296) scale(1)"><rect width="48" height="48" rx="8" fill="#0e4a7b"/><rect x="10" y="26" width="7" height="12" fill="#fff"/><rect x="20.5" y="16" width="7" height="22" fill="#fff"/><rect x="31" y="21" width="7" height="17" fill="#fff"/></g>
+<text x="1350" y="362" text-anchor="middle" font-size="12" font-weight="600" fill="#1a1a1a">Surveillance Dashboard</text>
+<text x="1350" y="377" text-anchor="middle" font-size="10" font-weight="600" fill="#1a1a1a">live · via Athena extract</text>
+
+<g transform="translate(1326,466) scale(1)"><rect width="48" height="48" rx="8" fill="#0e4a7b" opacity="0.5"/><rect x="10" y="26" width="7" height="12" fill="#fff"/><rect x="20.5" y="16" width="7" height="22" fill="#fff"/><rect x="31" y="21" width="7" height="17" fill="#fff"/></g>
+<text x="1350" y="532" text-anchor="middle" font-size="12" font-weight="600" fill="#6b6b6b">Analytics Dashboard</text>
+<text x="1350" y="547" text-anchor="middle" font-size="10" font-weight="600" fill="#6b6b6b">planned · via Redshift extract</text>
+
+<line x1="1104" y1="320" x2="1302" y2="320" stroke="#111111" stroke-width="1.3" marker-end="url(#arrowhead)"/>
+<text x="1203" y="308" text-anchor="middle" font-size="9.5" fill="#555555">query (extract)</text>
+<line x1="1110" y1="490" x2="1302" y2="490" stroke="#111111" stroke-width="1.1" stroke-dasharray="5,4" marker-end="url(#arrowhead)"/>
+<text x="1206" y="478" text-anchor="middle" font-size="9.5" fill="#555555">query (planned)</text>
+
+<!-- ===================== CROSS-ZONE CONNECTORS ===================== -->
+<line x1="159" y1="480" x2="530" y2="322" stroke="#111111" stroke-width="1.1" stroke-dasharray="5,4" marker-end="url(#arrowhead)"/>
+<text x="330" y="418" text-anchor="middle" font-size="9.5" fill="#555555">deploy: point EMR app at new image</text>
+
+<line x1="200" y1="705" x2="376" y2="335" stroke="#111111" stroke-width="1.3" marker-end="url(#arrowhead)"/>
+<text x="255" y="540" text-anchor="middle" font-size="9.5" fill="#555555" transform="rotate(-55 255 540)">upload raw parquet</text>
+
+<!-- ===================== LEGEND ===================== -->
+<line x1="60" y1="880" x2="110" y2="880" stroke="#111111" stroke-width="1.3" marker-end="url(#arrowhead)"/>
+<text x="122" y="884" text-anchor="start" font-size="12" fill="#2a2a2a">live data / build path</text>
+<line x1="330" y1="880" x2="380" y2="880" stroke="#111111" stroke-width="1.1" stroke-dasharray="5,4" marker-end="url(#arrowhead)"/>
+<text x="392" y="884" text-anchor="start" font-size="12" fill="#2a2a2a">planned or control-plane</text>
+<rect x="640" y="872" width="16" height="16" rx="3" fill="none" stroke="#9a9a9a" stroke-width="1.4" stroke-dasharray="6,4"/>
+<text x="666" y="884" text-anchor="start" font-size="12" fill="#2a2a2a">planned, not yet built</text>
+<rect x="880" y="872" width="16" height="16" rx="3" fill="none" stroke="#FF9900" stroke-width="1.8" stroke-dasharray="7,5"/>
+<text x="904" y="884" text-anchor="start" font-size="12" fill="#2a2a2a">AWS account boundary</text>
+
+<text x="780" y="925" text-anchor="middle" font-size="10.5" fill="#8a8a8a">Cost: EMR Serverless + Athena scale to $0 when idle · Redshift Serverless storage bills continuously once built (see infra/README.md)</text>
+</svg>
