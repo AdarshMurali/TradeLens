@@ -15,19 +15,22 @@ export AWS_PROFILE="${AWS_PROFILE:?Set AWS_PROFILE in .env}"
 # Explicit sizing, kept under this account's EMR Serverless vCPU quota
 # ("Max concurrent vCPUs per account" — check with:
 #   aws service-quotas list-service-quotas --service-code emr-serverless
-# ours is 16 in ap-south-1 as of 2026-09-05, quota increase to 64 requested
-# but still pending). driver(4) + 2*executor(4) = 12, leaving headroom.
+# raised to 256 in ap-south-1 as of 2026-09-08, up from the original 16 that
+# forced driver(4)+2*executor(4)=12 on the 5-symbol dataset). This run
+# targets the 50-symbol/50M-order-event "10x" checkpoint (see
+# config/config.yaml, docs/PROJECT_PLAN.md Phase 6): driver(4)+8*executor(4)
+# = 36 vCPU, well under the new ceiling with headroom to spare.
 # initialExecutors must be set explicitly alongside maxExecutors — EMR
 # Serverless silently defaults it to 3 regardless of spark.executor.instances,
 # which otherwise conflicts with a lower maxExecutors and fails submission.
-# shuffle.partitions is cut from the cluster-sized default (64) to match the
-# cores actually available, not left at the default sized for a real cluster.
+# shuffle.partitions bumped to 64 (2x the 32 executor cores now available,
+# a common rule of thumb) — 16 was sized for the old 8-core (2x4) fleet.
 SPARK_SUBMIT_PARAMS="--conf spark.driver.cores=4 --conf spark.driver.memory=16g"
 SPARK_SUBMIT_PARAMS+=" --conf spark.executor.cores=4 --conf spark.executor.memory=16g"
-SPARK_SUBMIT_PARAMS+=" --conf spark.executor.instances=2"
-SPARK_SUBMIT_PARAMS+=" --conf spark.dynamicAllocation.initialExecutors=2"
-SPARK_SUBMIT_PARAMS+=" --conf spark.dynamicAllocation.maxExecutors=2"
-SPARK_SUBMIT_PARAMS+=" --conf spark.sql.shuffle.partitions=16"
+SPARK_SUBMIT_PARAMS+=" --conf spark.executor.instances=8"
+SPARK_SUBMIT_PARAMS+=" --conf spark.dynamicAllocation.initialExecutors=8"
+SPARK_SUBMIT_PARAMS+=" --conf spark.dynamicAllocation.maxExecutors=8"
+SPARK_SUBMIT_PARAMS+=" --conf spark.sql.shuffle.partitions=64"
 
 # The bucket names are job/environment-specific, not something to bake into
 # the (otherwise portable) image — config.yaml's ${TRADELENS_RAW_BUCKET} /
